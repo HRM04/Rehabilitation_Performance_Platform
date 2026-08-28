@@ -2,11 +2,13 @@ import csv
 import cv2
 from datetime import datetime
 from pathlib import Path
-from video_playback import play_video
+from src.capture.video_playback import play_video
 import mediapipe as mp
 import time
 
-
+from src.grasp.grasp_features import calculate_thumb_index_distance
+from src.grasp.grasp_classifier import classify_pinch
+from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks)
 
 # -----------------------------
 # MediaPipe setup
@@ -44,7 +46,7 @@ landmark_output_path = (
     LANDMARK_DIR / f"{timestamp}_camera_test_landmarks.csv"
 )
 
-PINCH_THRESHOLD = 0.55
+
 
 
 # -----------------------------
@@ -57,7 +59,6 @@ if not camera.isOpened():
     raise RuntimeError("Could not open camera.")
 
 
-# print("Reached camera settings section")
 
 # Request capture settings
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
@@ -68,10 +69,7 @@ actual_width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
 actual_height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
 actual_fps = camera.get(cv2.CAP_PROP_FPS)
 
-print(f"Camera resolution: {actual_width}x{actual_height}")
-print(f"Camera FPS: {actual_fps}")
 
-# print("Finished camera settings section")
 
 # -----------------------------
 # Create video writer
@@ -96,65 +94,14 @@ print(f"Saving to: {output_path}")
 print("Press Q to stop recording.")
 
 
-#open CSV file for writing hand landmarks
-csv_file = open(
-    landmark_output_path,
-    "w",
-    newline=""
-)
-
-csv_writer = csv.writer(csv_file)
-
-csv_file = open(
-    landmark_output_path,
-    "w",
-    newline=""
-)
-
-csv_writer = csv.writer(csv_file)
-
-# Write column headings
-csv_writer.writerow([
-    "session_name",
-    "frame_number",
-    "timestamp_ms",
-    "detected_hand_count",
-    "hand_label",
-    "hand_confidence",
-    "landmark_number",
-    "landmark_name",
-    "x_norm",
-    "y_norm",
-    "z_rel",
-    "x_px",
-    "y_px",
-    "x_rel",
-    "y_rel",
-    "x_scaled",
-    "y_scaled"
-])
+# open CSV file for writing hand landmarks
+csv_file, csv_writer = create_landmark_logger(landmark_output_path)
 
 frame_number = 0
 
 start_time = time.perf_counter()
 
-# thumb_index_distances = {
-#     "Left": [],
-#     "Right": []
-# }
 
-thumb_index_distances = {
-    "Left": {
-        "open": [],
-        "pinch": []
-    },
-    "Right": {
-        "open": [],
-        "pinch": []
-    }
-}
-
-grasp_state = None
 # -----------------------------
 # Capture loop
 # -----------------------------
@@ -179,7 +126,6 @@ while True:
     else:
         num_hands = 0
 
-    print(f"Hands detected: {num_hands}")
 
 
     if results.multi_hand_landmarks:
@@ -260,114 +206,48 @@ while True:
                     coordinates["y_scaled"] = (
                         coordinates["y_rel"] / reference_distance
                     )
+            else:
+                continue
 
 
             # -----------------------------
             # Thumb-index distance
             # -----------------------------
 
-            thumb_tip = hand_data["THUMB_TIP"]
-            index_tip = hand_data["INDEX_FINGER_TIP"]
+            thumb_index_distance = calculate_thumb_index_distance(hand_data)
 
-            x_distance = (
-                thumb_tip["x_scaled"] - index_tip["x_scaled"]
-            )
-
-            y_distance = (
-                thumb_tip["y_scaled"] - index_tip["y_scaled"]
-            )
-
-            thumb_index_distance = (
-                x_distance ** 2 + y_distance ** 2
-            ) ** 0.5
-
-            UNCERTAIN_MARGIN = 0.05
-            PINCH_THRESHOLD = 0.55
-
-            lower_threshold = PINCH_THRESHOLD - UNCERTAIN_MARGIN
-            upper_threshold = PINCH_THRESHOLD + UNCERTAIN_MARGIN
-
-            if thumb_index_distance < lower_threshold:
-                predicted_grasp = "PINCH"
-
-            elif thumb_index_distance > upper_threshold:
-                predicted_grasp = "NOT PINCH"
-
-            else:
-                predicted_grasp = "UNCERTAIN"
 
             # -----------------------------
             # Pinch detection
             # -----------------------------
+            predicted_grasp, grasp_confidence = classify_pinch(thumb_index_distance)
 
-            # if thumb_index_distance < PINCH_THRESHOLD:
-            #     predicted_grasp = "PINCH"
-            # else:
-            #     predicted_grasp = "NOT PINCH"
+            grasp_text = (f"{hand_label}: {predicted_grasp} "
+                        f"({grasp_confidence:.1f}%)")
 
+            cv2.putText(
+                frame,
+                grasp_text,
+                (wrist_x, wrist_y - 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2
+            )
 
-            
-
-            if grasp_state is not None:
-                thumb_index_distances[hand_label][grasp_state].append(
-                    thumb_index_distance
-                )
-
-                grasp_text = f"{hand_label}: {predicted_grasp}"
-
-                cv2.putText(
-                    frame,
-                    grasp_text,
-                    (wrist_x, wrist_y - 60),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2
-                )
-
-        for landmark_number, landmark_name in enumerate(
-            mp_hands.HandLandmark
-        ):
-
-            coordinates = hand_data[landmark_name.name]
-
-            csv_writer.writerow([
-                output_path.stem,
-                frame_number,
-                timestamp_ms,
-                num_hands,
-                hand_label,
-                hand_confidence,
-                landmark_number,
-                landmark_name.name,
-                coordinates["x_norm"],
-                coordinates["y_norm"],
-                coordinates["z_rel"],
-                coordinates["x_px"],
-                coordinates["y_px"],
-                coordinates["x_rel"],
-                coordinates["y_rel"],
-                coordinates["x_scaled"],
-                coordinates["y_scaled"]
-            ])
-
-
-        print(
-            "\n\nIndex scaled:",
-            hand_data["INDEX_FINGER_TIP"]["x_scaled"],
-            hand_data["INDEX_FINGER_TIP"]["y_scaled"]
-        )
-
-
-        print("\n\nPixels:", hand_data["INDEX_FINGER_TIP"]["x_rel"],
-                hand_data["INDEX_FINGER_TIP"]["y_rel"])
-
-        print("\n\nScaled:", hand_data["INDEX_FINGER_TIP"]["x_scaled"],
-                hand_data["INDEX_FINGER_TIP"]["y_scaled"])
-        print("\n\nWrist:", hand_data["WRIST"])
-        print("Index tip:", hand_data["INDEX_FINGER_TIP"])
-        print(hand_data["INDEX_FINGER_TIP"])
-
+            log_hand_landmarks(
+            csv_writer,
+            output_path.stem,
+            frame_number,
+            timestamp_ms,
+            num_hands,
+            hand_label,
+            hand_confidence,
+            hand_data,
+            mp_hands.HandLandmark,
+            thumb_index_distance,
+            predicted_grasp,
+            grasp_confidence)
 
 
             
@@ -382,36 +262,15 @@ while True:
         2
     )
 
-    if grasp_state is not None:
-        cv2.putText(
-            frame,
-            f"Calibration state: {grasp_state.upper()}",
-            (30, 90),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 255, 255),
-            2
-        )
-
+    
 
     writer.write(frame)
 
     cv2.imshow("Camera Capture", frame)
 
-    # if cv2.waitKey(1) & 0xFF == ord("q"):
-    #     break
-
     key = cv2.waitKey(1) & 0xFF
 
-    if key == ord("o"):
-        grasp_state = "open"
-        print("Calibration state: OPEN")
-
-    elif key == ord("p"):
-        grasp_state = "pinch"
-        print("Calibration state: PINCH")
-
-    elif key == ord("q"):
+    if key == ord("q"):
         break
 
 
@@ -430,24 +289,6 @@ print("Recording stopped.")
 print(f"Video saved to: {output_path}")
 print(f"Landmark data saved to: {landmark_output_path}")
 
-print("\nThumb-index distance measurements:")
 
-print("\nThumb-index distance summary:")
-
-for hand, states in thumb_index_distances.items():
-
-    for state, distances in states.items():
-
-        if distances:
-
-            minimum = min(distances)
-            maximum = max(distances)
-            average = sum(distances) / len(distances)
-
-            print(f"\n{hand.upper()} - {state.upper()}")
-            print(f"Samples: {len(distances)}")
-            print(f"Minimum: {minimum:.3f}")
-            print(f"Average: {average:.3f}")
-            print(f"Maximum: {maximum:.3f}")
 
 play_video(output_path)
