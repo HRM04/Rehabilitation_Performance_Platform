@@ -14,7 +14,7 @@ from src.grasp.grasp_classifier import (classify_pinch, detect_cylindrical_grasp
                                         detect_tip_pinch, detect_whole_hand_power_grip, detect_handle_grasp, detect_tripod_grasp,
                                         detect_lateral_pinch)
 from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks)
-
+from src.object_detection.object_detector import (detect_objects,draw_detected_objects)
 # -----------------------------
 # MediaPipe setup
 # -----------------------------
@@ -115,9 +115,17 @@ while True:
 
     success, frame = camera.read()
 
+
     if not success:
         print("Failed to capture frame.")
         break
+
+    detected_objects = detect_objects(frame)
+
+    draw_detected_objects(
+        frame,
+        detected_objects
+    )
 
     frame_number += 1
     timestamp_ms = int((time.perf_counter() - start_time) * 1000)
