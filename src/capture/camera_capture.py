@@ -6,8 +6,13 @@ from src.capture.video_playback import play_video
 import mediapipe as mp
 import time
 
-from src.grasp.grasp_features import calculate_thumb_index_distance
-from src.grasp.grasp_classifier import classify_pinch
+from src.grasp.grasp_features import (calculate_finger_spread, calculate_hand_aperture, calculate_thumb_index_distance, 
+                                    calculate_finger_angles,calculate_thumb_opposition, calculate_thumb_index_side_distance,
+                                    calculate_thumb_fingertip_distances)
+from src.grasp.grasp_classifier import (classify_pinch, detect_cylindrical_grasp, detect_hook_grasp, 
+                                        detect_large_aperture_palmar_grasp, detect_multidigit_precision_grasp, detect_pincer_grasp, detect_spherical_grasp,
+                                        detect_tip_pinch, detect_whole_hand_power_grip, detect_handle_grasp, detect_tripod_grasp,
+                                        detect_lateral_pinch)
 from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks)
 
 # -----------------------------
@@ -222,9 +227,144 @@ while True:
             # -----------------------------
             predicted_grasp, grasp_confidence = classify_pinch(thumb_index_distance)
 
+
+
+            # -----------------------------
+            # Cylindrical grasp detection
+            # -----------------------------
+            is_cylindrical, cylindrical_confidence = detect_cylindrical_grasp(hand_data)
+
             grasp_text = (f"{hand_label}: {predicted_grasp} "
                         f"({grasp_confidence:.1f}%)")
 
+
+            # -----------------------------
+            # Spherical grasp detection
+            # -----------------------------
+            finger_angles = calculate_finger_angles(hand_data)
+
+            thumb_distances = calculate_thumb_opposition(hand_data)
+
+            thumb_middle_distance = thumb_distances["thumb_middle"]
+
+            finger_spread = calculate_finger_spread(hand_data)
+            is_spherical, spherical_confidence = detect_spherical_grasp(
+                finger_angles,
+                thumb_index_distance,
+                thumb_middle_distance,
+                finger_spread
+            )
+
+
+
+            # -----------------------------
+            # Large-aperture palmar grasp detection
+            # -----------------------------
+            hand_aperture = calculate_hand_aperture(hand_data)
+            is_large_palmar, large_palmar_confidence = (
+                detect_large_aperture_palmar_grasp(
+                    finger_angles,
+                    finger_spread,
+                    hand_aperture,
+                    thumb_index_distance,
+                    thumb_middle_distance
+                )
+            )
+
+
+
+            # -----------------------------
+            # Whole-hand power grip detection
+            # -----------------------------
+            is_power_grip, power_grip_confidence = detect_whole_hand_power_grip(
+                finger_angles,
+                thumb_index_distance,
+                thumb_middle_distance,
+                hand_aperture
+            )
+
+            # -----------------------------
+            # Handle grasp detection
+            # -----------------------------
+            is_handle_grasp, handle_grasp_confidence = detect_handle_grasp(
+                finger_angles,
+                thumb_index_distance,
+                thumb_middle_distance,
+                hand_aperture,
+                finger_spread
+            )
+
+
+
+            # -----------------------------
+            # Hook grasp detection
+            # -----------------------------
+            is_hook_grasp, hook_grasp_confidence = detect_hook_grasp(
+                finger_angles,
+                thumb_index_distance,
+                thumb_middle_distance,
+                hand_aperture
+            )
+
+            # -----------------------------
+            # Pincer grasp detection
+            # -----------------------------
+            is_pincer, pincer_confidence = detect_pincer_grasp(
+                finger_angles,
+                thumb_index_distance,
+                thumb_middle_distance
+            )
+
+            # -----------------------------
+            # Tip pinch detection
+            # -----------------------------
+            is_tip_pinch, tip_pinch_confidence = detect_tip_pinch(
+                finger_angles,
+                thumb_index_distance,
+                thumb_middle_distance
+            )
+
+
+
+            # -----------------------------
+            # Tripod grasp detection
+            # -----------------------------
+            is_tripod, tripod_confidence = detect_tripod_grasp(
+                finger_angles,
+                thumb_index_distance,
+                thumb_middle_distance
+            )
+
+
+
+            # -----------------------------
+            # Lateral pinch detection
+            # -----------------------------
+            thumb_index_side_distance = (
+                calculate_thumb_index_side_distance(hand_data)
+            )
+            is_lateral_pinch, lateral_pinch_confidence = detect_lateral_pinch(
+                finger_angles,
+                thumb_index_distance,
+                thumb_index_side_distance
+            )
+
+
+
+
+            # -----------------------------
+            # Multidigit precision grasp detection
+            # -----------------------------
+            thumb_fingertip_distances = (
+                calculate_thumb_fingertip_distances(hand_data)
+            )
+            is_multidigit_precision, multidigit_precision_confidence = (
+                detect_multidigit_precision_grasp(
+                    finger_angles,
+                    thumb_fingertip_distances
+                )
+            )
+            
             cv2.putText(
                 frame,
                 grasp_text,
@@ -232,6 +372,131 @@ while True:
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (0, 255, 0),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                f"Cylindrical: {cylindrical_confidence:.1f}%",
+                (20, 170),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                f"Spherical: {spherical_confidence:.1f}%",
+                (20, 110),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+
+            cv2.putText(
+                frame,
+                f"Large Palmar: {is_large_palmar} ({large_palmar_confidence:.1f}%)",
+                (20, 140),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+
+            cv2.putText(
+                frame,
+                f"Power Grip: {is_power_grip} ({power_grip_confidence:.1f}%)",
+                (20, 200),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                f"Handle Grasp: {is_handle_grasp} ({handle_grasp_confidence:.1f}%)",
+                (20, 230),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+
+
+            cv2.putText(
+                frame,
+                f"Hook Grasp: {is_hook_grasp} ({hook_grasp_confidence:.1f}%)",
+                (20, 260),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+
+
+            cv2.putText(
+                frame,
+                f"Pincer: {is_pincer} ({pincer_confidence:.1f}%)",
+                (20, 290),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+
+            cv2.putText(
+                frame,
+                f"Tip Pinch: {is_tip_pinch} ({tip_pinch_confidence:.1f}%)",
+                (20, 320),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+
+
+
+            cv2.putText(
+                frame,
+                f"Tripod: {is_tripod} ({tripod_confidence:.1f}%)",
+                (20, 350),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+
+
+            cv2.putText(
+                frame,
+                f"Lateral Pinch: {is_lateral_pinch} ({lateral_pinch_confidence:.1f}%)",
+                (20, 380),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2
+            )
+
+
+
+            cv2.putText(
+                frame,
+                f"Multidigit Precision: {is_multidigit_precision} "
+                f"({multidigit_precision_confidence:.1f}%)",
+                (20, 410),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
                 2
             )
 
