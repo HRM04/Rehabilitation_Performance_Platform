@@ -283,3 +283,33 @@ def calculate_thumb_fingertip_distances(hand_data):
         distances[finger_name] = distance
 
     return distances
+
+
+def calculate_hand_center(hand_data):
+    """
+    Calculate an approximate center of the hand
+    using the wrist and MCP joints.
+    """
+
+    landmark_names = [
+        "WRIST",
+        "INDEX_FINGER_MCP",
+        "MIDDLE_FINGER_MCP",
+        "RING_FINGER_MCP",
+        "PINKY_MCP"
+    ]
+
+    x_values = [
+        hand_data[name]["x_px"]
+        for name in landmark_names
+    ]
+
+    y_values = [
+        hand_data[name]["y_px"]
+        for name in landmark_names
+    ]
+
+    center_x = int(sum(x_values) / len(x_values))
+    center_y = int(sum(y_values) / len(y_values))
+
+    return center_x, center_y

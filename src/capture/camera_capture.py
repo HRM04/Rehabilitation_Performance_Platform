@@ -8,13 +8,22 @@ import time
 
 from src.grasp.grasp_features import (calculate_finger_spread, calculate_hand_aperture, calculate_thumb_index_distance, 
                                     calculate_finger_angles,calculate_thumb_opposition, calculate_thumb_index_side_distance,
-                                    calculate_thumb_fingertip_distances)
+                                    calculate_thumb_fingertip_distances, calculate_hand_center)
 from src.grasp.grasp_classifier import (classify_pinch, detect_cylindrical_grasp, detect_hook_grasp, 
                                         detect_large_aperture_palmar_grasp, detect_multidigit_precision_grasp, detect_pincer_grasp, detect_spherical_grasp,
                                         detect_tip_pinch, detect_whole_hand_power_grip, detect_handle_grasp, detect_tripod_grasp,
                                         detect_lateral_pinch)
 from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks)
-from src.object_detection.object_detector import (detect_objects,draw_detected_objects)
+from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects)
+from src.object_detection.hand_object_interaction import (find_nearest_object, is_hand_near_object, 
+                                                          count_fingertips_near_object, calculate_object_movement, 
+                                                          determine_interaction_state, InteractionStateTracker)
+from src.tasks.task_config import get_task
+from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects, filter_objects_by_class,)
+from src.data.frame_record import create_frame_record
+from src.data.interaction_logger import (create_interaction_logger, log_frame_record,)
+from src.object_detection.object_detection_tracker import (ObjectDetectionTracker)
+
 # -----------------------------
 # MediaPipe setup
 # -----------------------------
@@ -38,6 +47,15 @@ WIDTH = 1280
 HEIGHT = 720
 FPS = 30
 
+CURRENT_TASK_ID = "bottle_transport"
+
+current_task = get_task(
+    CURRENT_TASK_ID
+)
+
+permitted_objects = current_task["permitted_objects"]
+expected_grasps = current_task["expected_grasps"]
+
 OUTPUT_DIR = Path("data/raw/video")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -51,9 +69,23 @@ landmark_output_path = (
     LANDMARK_DIR / f"{timestamp}_camera_test_landmarks.csv"
 )
 
+INTERACTION_DIR = Path("data/raw/interactions")
+INTERACTION_DIR.mkdir(parents=True, exist_ok=True)
+
+interaction_output_path = (
+    INTERACTION_DIR
+    / f"{timestamp}_interaction_data.csv"
+)
+
+SESSION_ID = timestamp
+TRIAL_ID = "trial_001"
+REPETITION_NUMBER = 1
 
 
-
+object_detection_tracker = ObjectDetectionTracker(
+    lost_after_frames=3,
+    uncertain_threshold=0.25
+)
 # -----------------------------
 # Open camera
 # -----------------------------
@@ -95,6 +127,17 @@ if not writer.isOpened():
 
 
 print("Recording started.")
+print(
+    f"Current task: {current_task['task_name']}"
+)
+
+print(
+    f"Permitted objects: {permitted_objects}"
+)
+
+print(
+    f"Expected grasps: {expected_grasps}"
+)
 print(f"Saving to: {output_path}")
 print("Press Q to stop recording.")
 
@@ -102,11 +145,22 @@ print("Press Q to stop recording.")
 # open CSV file for writing hand landmarks
 csv_file, csv_writer = create_landmark_logger(landmark_output_path)
 
+interaction_csv_file, interaction_csv_writer = (
+    create_interaction_logger(
+        interaction_output_path
+    )
+)
+
 frame_number = 0
 
 start_time = time.perf_counter()
 
+previous_object_center = None
+object_movement = 0.0
 
+interaction_tracker = InteractionStateTracker(
+    required_frames=3
+)
 # -----------------------------
 # Capture loop
 # -----------------------------
@@ -115,25 +169,58 @@ while True:
 
     success, frame = camera.read()
 
+    object_movement = 0.0
 
     if not success:
         print("Failed to capture frame.")
         break
 
-    detected_objects = detect_objects(frame)
-
-    draw_detected_objects(
-        frame,
-        detected_objects
-    )
 
     frame_number += 1
     timestamp_ms = int((time.perf_counter() - start_time) * 1000)
 
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    detected_objects = detect_objects(frame)
+
+    if frame_number % 30 == 0:
+        # print(
+        #     "YOLO:",
+        #     [obj["class_name"] for obj in detected_objects]
+        # )
+
+        print(
+            "YOLO:",
+            [
+                (
+                    obj["class_name"],
+                    round(obj["confidence"], 2)
+                )
+                for obj in detected_objects
+            ]
+        )
+
+    if frame_number % 30 == 0:
+        print(
+            "Permitted:",
+            [
+                obj["class_name"]
+                for obj in permitted_detected_objects
+            ]
+        )
+
+    permitted_detected_objects, irrelevant_detected_objects = (filter_objects_by_class(detected_objects, permitted_objects))
+
+    object_outcome = object_detection_tracker.update(permitted_detected_objects)
+
+    rgb_frame = cv2.cvtColor(
+        frame,
+        cv2.COLOR_BGR2RGB
+    )
 
     results = hands.process(rgb_frame)
-
+    draw_detected_objects(
+        frame,
+        detected_objects
+    )
     if results.multi_hand_landmarks:
         num_hands = len(results.multi_hand_landmarks)
     else:
@@ -183,13 +270,80 @@ while True:
                     "y_px": y_px
                 }
 
+            hand_center = calculate_hand_center(hand_data)
+
+            wrist_x = hand_data["WRIST"]["x_px"]
+            wrist_y = hand_data["WRIST"]["y_px"]
+
+            hand_near_object = False
+            fingertip_count = 0
+            object_name = None
+            object_distance = None
+
+            nearest_object, object_distance = find_nearest_object(
+                hand_center,
+                permitted_detected_objects
+            )
+
+            if nearest_object is not None:
+
+                object_name = nearest_object["class_name"]
+
+                # -----------------------------
+                # Object movement
+                # -----------------------------
+                current_object_center = nearest_object["center"]
+
+                object_movement = calculate_object_movement(
+                    previous_object_center,
+                    current_object_center
+                )
+
+                previous_object_center = current_object_center
+
+                # -----------------------------
+                # Hand-object proximity
+                # -----------------------------
+                hand_near_object = is_hand_near_object(
+                    hand_center,
+                    nearest_object
+                )
+
+                # -----------------------------
+                # Fingertip-object proximity
+                # -----------------------------
+                fingertip_count = count_fingertips_near_object(
+                    hand_data,
+                    nearest_object
+                )
+
+                # cv2.putText(
+                #     frame,
+                #     interaction_text,
+                #     (wrist_x, wrist_y - 90),
+                #     cv2.FONT_HERSHEY_SIMPLEX,
+                #     0.6,
+                #     (255, 255, 0),
+                #     2
+                # )
+
+            
+
+                # cv2.putText(
+                #     frame,
+                #     interaction_text,
+                #     (wrist_x, wrist_y - 90),
+                #     cv2.FONT_HERSHEY_SIMPLEX,
+                #     0.6,
+                #     (255, 255, 0),
+                #     2
+                # )
 
             # -----------------------------
             # Wrist-relative coordinates
             # -----------------------------
 
-            wrist_x = hand_data["WRIST"]["x_px"]
-            wrist_y = hand_data["WRIST"]["y_px"]
+            
 
             for landmark_name, coordinates in hand_data.items():
 
@@ -197,6 +351,19 @@ while True:
                 coordinates["y_rel"] = coordinates["y_px"] - wrist_y
 
 
+            if nearest_object is not None:
+
+                object_name = nearest_object["class_name"]
+
+                cv2.putText(
+                    frame,
+                    f"Nearest object: {object_name} ({object_distance:.0f}px)",
+                    (wrist_x, wrist_y - 90),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 0),
+                    2
+                )
             # -----------------------------
             # Scale normalization
             # -----------------------------
@@ -372,7 +539,133 @@ while True:
                     thumb_fingertip_distances
                 )
             )
+
+
+            grasp_detected = any([
+                is_cylindrical,
+                is_spherical,
+                is_large_palmar,
+                is_power_grip,
+                is_handle_grasp,
+                is_hook_grasp,
+                is_pincer,
+                is_tip_pinch,
+                is_tripod,
+                is_lateral_pinch,
+                is_multidigit_precision,
+            ])
+
+            candidate_interaction_state = determine_interaction_state(
+                hand_near_object=hand_near_object,
+                fingertips_near_object=fingertip_count,
+                grasp_detected=grasp_detected
+            )
+
+            interaction_state = interaction_tracker.update(
+                candidate_interaction_state
+            )
+
+            frame_record = create_frame_record(
+                frame_number=frame_number,
+                timestamp_ms=timestamp_ms,
+
+                session_id=SESSION_ID,
+                trial_id=TRIAL_ID,
+                repetition_number=REPETITION_NUMBER,
+
+                task_id=CURRENT_TASK_ID,
+                task_name=current_task["task_name"],
+
+                hand_label=hand_label,
+                hand_confidence=hand_confidence,
+                hand_center=hand_center,
+
+                grasp_detected=grasp_detected,
+                interaction_state=interaction_state,
+
+                detected_object=nearest_object,
+                object_distance=object_distance,
+                object_movement=object_movement,
+                fingertip_count=fingertip_count,
+
+                object_outcome=object_outcome,
+            )
+
+            log_frame_record(
+                interaction_csv_writer,
+                frame_record
+            )
+
+            if frame_number % 30 == 0:
+                print(frame_record)
+
+            if object_name is not None:
+                interaction_text = (
+                    f"Raw: {candidate_interaction_state} | "
+                    f"Stable: {interaction_state}"
+                )
+            else:
+                interaction_text = (
+                    f"Raw: {candidate_interaction_state} | "
+                    f"Stable: {interaction_state}"
+                )
+
+            cv2.putText(
+                frame,
+                interaction_text,
+                (wrist_x, wrist_y - 240),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 0),
+                2
+            )
+
+            if object_name is not None:
+
+                cv2.putText(
+                    frame,
+                    f"Object movement: {object_movement:.1f}px",
+                    (wrist_x, wrist_y - 150),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 0),
+                    2
+                )
+
+
+            if object_name is not None:
+
+                cv2.putText(
+                    frame,
+                    f"Nearest: {object_name} ({object_distance:.0f}px)",
+                    (wrist_x, wrist_y - 120),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 0),
+                    2
+                )
+
+            cv2.putText(
+                    frame,
+                    f"Object movement: {object_movement:.1f}px",
+                    (wrist_x, wrist_y - 180),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 0),
+                    2
+                )
+
             
+            cv2.putText(
+                frame,
+                interaction_text,
+                (wrist_x, wrist_y - 210),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 0),
+                2
+            )
+        
             cv2.putText(
                 frame,
                 grasp_text,
@@ -535,6 +828,27 @@ while True:
         2
     )
 
+
+    cv2.putText(
+        frame,
+        f"Permitted objects: {len(permitted_detected_objects)}",
+        (30, 450),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (255, 255, 255),
+        2
+    )
+
+    cv2.putText(
+        frame,
+        f"Irrelevant objects: {len(irrelevant_detected_objects)}",
+        (30, 480),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (255, 255, 255),
+        2
+    )
+
     
 
     writer.write(frame)
@@ -557,11 +871,15 @@ camera.release()
 writer.release()
 csv_file.close()
 cv2.destroyAllWindows()
+interaction_csv_file.close()
 
 print("Recording stopped.")
 print(f"Video saved to: {output_path}")
 print(f"Landmark data saved to: {landmark_output_path}")
-
+print(
+    f"Interaction data saved to: "
+    f"{interaction_output_path}"
+)
 
 
 play_video(output_path)

@@ -1,0 +1,62 @@
+def create_frame_record(
+    frame_number,
+    timestamp_ms,
+    session_id,
+    trial_id,
+    repetition_number,
+    task_id,
+    task_name,
+    hand_label,
+    hand_confidence,
+    hand_center,
+    grasp_detected,
+    interaction_state,
+    object_outcome,
+    detected_object=None,
+    object_distance=None,
+    object_movement=0.0,
+    fingertip_count=0,
+):
+
+    record = {
+        "frame_number": frame_number,
+        "timestamp_ms": timestamp_ms,
+
+        "task": {
+            "task_id": task_id,
+            "task_name": task_name,
+        },
+
+        "hand": {
+            "handedness": hand_label,
+            "hand_confidence": hand_confidence,
+            "hand_center": hand_center,
+            "grasp_detected": grasp_detected,
+        },
+
+        "interaction": {
+            "state": interaction_state,
+            "fingertip_count": fingertip_count,
+            "object_distance": object_distance,
+            "object_movement": object_movement,
+            "object_outcome": object_outcome,
+        },
+
+        "trial": {
+            "session_id": session_id,
+            "trial_id": trial_id,
+            "repetition_number": repetition_number,
+        },
+
+        "object": None,
+    }
+
+    if detected_object is not None:
+        record["object"] = {
+            "class_name": detected_object["class_name"],
+            "confidence": detected_object["confidence"],
+            "bounding_box": detected_object["bounding_box"],
+            "center": detected_object["center"],
+        }
+
+    return record
