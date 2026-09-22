@@ -125,3 +125,63 @@ def log_frame_record(
         })
 
     writer.writerow(row)
+
+
+
+
+def log_no_hand_interaction(
+    writer,
+    frame_number,
+    timestamp_ms,
+    session_id,
+    trial_id,
+    repetition_number,
+    task_id,
+    task_name,
+    object_outcome
+):
+    """
+    Record a frame where no hands were detected.
+
+    Hand-specific and interaction measurements remain
+    empty because no valid hand observation is available.
+    """
+
+    row = {
+        "session_id": session_id,
+        "trial_id": trial_id,
+        "repetition_number": repetition_number,
+
+        "frame_number": frame_number,
+        "timestamp_ms": timestamp_ms,
+
+        "task_id": task_id,
+        "task_name": task_name,
+
+        "handedness": None,
+        "hand_confidence": None,
+
+        "hand_center_x": None,
+        "hand_center_y": None,
+
+        "grasp_detected": None,
+
+        "interaction_state": None,
+        "object_outcome": object_outcome,
+        "fingertip_count": None,
+        "object_distance": None,
+        "object_movement": None,
+
+        "object_class": None,
+        "object_confidence": None,
+
+        "bbox_x1": None,
+        "bbox_y1": None,
+        "bbox_x2": None,
+        "bbox_y2": None,
+
+        "object_center_x": None,
+        "object_center_y": None
+    }
+
+    writer.writerow(row)

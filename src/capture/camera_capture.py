@@ -13,7 +13,7 @@ from src.grasp.grasp_classifier import (classify_pinch, detect_cylindrical_grasp
                                         detect_large_aperture_palmar_grasp, detect_multidigit_precision_grasp, detect_pincer_grasp, detect_spherical_grasp,
                                         detect_tip_pinch, detect_whole_hand_power_grip, detect_handle_grasp, detect_tripod_grasp,
                                         detect_lateral_pinch)
-from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks)
+from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks,log_no_hand_frame)
 from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects)
 from src.object_detection.hand_object_interaction import (find_nearest_object, is_hand_near_object, 
                                                           count_fingertips_near_object, calculate_object_movement, 
@@ -21,7 +21,7 @@ from src.object_detection.hand_object_interaction import (find_nearest_object, i
 from src.tasks.task_config import get_task
 from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects, filter_objects_by_class,)
 from src.data.frame_record import create_frame_record
-from src.data.interaction_logger import (create_interaction_logger, log_frame_record,)
+from src.data.interaction_logger import (create_interaction_logger, log_frame_record, log_no_hand_interaction,)
 from src.object_detection.object_detection_tracker import (ObjectDetectionTracker)
 
 # -----------------------------
@@ -198,6 +198,8 @@ while True:
             ]
         )
 
+    permitted_detected_objects, irrelevant_detected_objects = (filter_objects_by_class(detected_objects, permitted_objects))
+
     if frame_number % 30 == 0:
         print(
             "Permitted:",
@@ -207,7 +209,6 @@ while True:
             ]
         )
 
-    permitted_detected_objects, irrelevant_detected_objects = (filter_objects_by_class(detected_objects, permitted_objects))
 
     object_outcome = object_detection_tracker.update(permitted_detected_objects)
 
@@ -225,6 +226,28 @@ while True:
         num_hands = len(results.multi_hand_landmarks)
     else:
         num_hands = 0
+
+
+    if num_hands == 0:
+
+        log_no_hand_frame(
+            csv_writer,
+            output_path.stem,
+            frame_number,
+            timestamp_ms
+        )
+
+        log_no_hand_interaction(
+            writer=interaction_csv_writer,
+            frame_number=frame_number,
+            timestamp_ms=timestamp_ms,
+            session_id=SESSION_ID,
+            trial_id=TRIAL_ID,
+            repetition_number=REPETITION_NUMBER,
+            task_id=CURRENT_TASK_ID,
+            task_name=current_task["task_name"],
+            object_outcome=object_outcome
+        )
 
 
 

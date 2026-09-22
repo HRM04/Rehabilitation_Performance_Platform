@@ -82,3 +82,42 @@ def log_hand_landmarks(
             predicted_grasp,
             grasp_confidence
         ])
+
+
+
+
+def log_no_hand_frame(
+    csv_writer,
+    session_name,
+    frame_number,
+    timestamp_ms
+):
+    """
+    Record a frame where no hands were detected.
+
+    Landmark measurements remain empty because
+    no valid hand landmarks are available.
+    """
+
+    csv_writer.writerow([
+        session_name,
+        frame_number,
+        timestamp_ms,
+        0,       # detected_hand_count
+        None,    # hand_label
+        None,    # hand_confidence
+        None,    # landmark_number
+        None,    # landmark_name
+        None,    # x_norm
+        None,    # y_norm
+        None,    # z_rel
+        None,    # x_px
+        None,    # y_px
+        None,    # x_rel
+        None,    # y_rel
+        None,    # x_scaled
+        None,    # y_scaled
+        None,    # thumb_index_distance
+        None,    # predicted_grasp
+        None     # grasp_confidence
+    ])
