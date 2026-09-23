@@ -37,6 +37,13 @@ def create_interaction_logger(output_path):
         "object_class",
         "object_confidence",
 
+        "track_id",
+        "tracking_status",
+
+        "object_id",
+        "identity_status",
+        "identity_confidence",
+
         "bbox_x1",
         "bbox_y1",
         "bbox_x2",
@@ -97,6 +104,13 @@ def log_frame_record(
         "object_class": None,
         "object_confidence": None,
 
+        "track_id": None,
+        "tracking_status": None,
+
+        "object_id": None,
+        "identity_status": None,
+        "identity_confidence": None,
+
         "bbox_x1": None,
         "bbox_y1": None,
         "bbox_x2": None,
@@ -122,6 +136,13 @@ def log_frame_record(
 
             "object_center_x": object_center_x,
             "object_center_y": object_center_y,
+
+            "track_id": detected_object.get("track_id"),
+            "tracking_status": detected_object.get("tracking_status"),
+
+            "object_id": detected_object.get("object_id"),
+"identity_status": detected_object.get("identity_status"),
+"identity_confidence": detected_object.get("identity_confidence"),
         })
 
     writer.writerow(row)
@@ -174,6 +195,13 @@ def log_no_hand_interaction(
 
         "object_class": None,
         "object_confidence": None,
+
+        "track_id": None,
+        "tracking_status": None,
+
+        "object_id": None,
+        "identity_status": None,
+        "identity_confidence": None,
 
         "bbox_x1": None,
         "bbox_y1": None,

@@ -23,6 +23,8 @@ from src.object_detection.yolo_detector import (detect_objects, draw_detected_ob
 from src.data.frame_record import create_frame_record
 from src.data.interaction_logger import (create_interaction_logger, log_frame_record, log_no_hand_interaction,)
 from src.object_detection.object_detection_tracker import (ObjectDetectionTracker)
+from src.object_detection.object_tracker import (track_objects, ObjectIdentityTracker,)
+from src.data.object_logger import (create_object_logger, log_detected_objects,)
 
 # -----------------------------
 # MediaPipe setup
@@ -86,6 +88,25 @@ object_detection_tracker = ObjectDetectionTracker(
     lost_after_frames=3,
     uncertain_threshold=0.25
 )
+
+identity_tracker = ObjectIdentityTracker(
+    max_missing_frames=5,
+    max_match_distance=100,
+)
+
+# Create an independent object-detection log
+OBJECT_LOG_DIR = Path("data/raw/objects")
+OBJECT_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+object_csv_path = (
+    OBJECT_LOG_DIR
+    / f"{SESSION_ID}_object_data.csv"
+)
+
+object_csv_file, object_csv_writer = create_object_logger(
+    object_csv_path
+)
+
 # -----------------------------
 # Open camera
 # -----------------------------
@@ -165,736 +186,786 @@ interaction_tracker = InteractionStateTracker(
 # Capture loop
 # -----------------------------
 
-while True:
 
-    success, frame = camera.read()
+try:
+    while True:
 
-    object_movement = 0.0
+        success, frame = camera.read()
 
-    if not success:
-        print("Failed to capture frame.")
-        break
+        object_movement = 0.0
 
-
-    frame_number += 1
-    timestamp_ms = int((time.perf_counter() - start_time) * 1000)
-
-    detected_objects = detect_objects(frame)
-
-    if frame_number % 30 == 0:
-        # print(
-        #     "YOLO:",
-        #     [obj["class_name"] for obj in detected_objects]
-        # )
-
-        print(
-            "YOLO:",
-            [
-                (
-                    obj["class_name"],
-                    round(obj["confidence"], 2)
-                )
-                for obj in detected_objects
-            ]
-        )
-
-    permitted_detected_objects, irrelevant_detected_objects = (filter_objects_by_class(detected_objects, permitted_objects))
-
-    if frame_number % 30 == 0:
-        print(
-            "Permitted:",
-            [
-                obj["class_name"]
-                for obj in permitted_detected_objects
-            ]
-        )
+        if not success:
+            print("Failed to capture frame.")
+            break
 
 
-    object_outcome = object_detection_tracker.update(permitted_detected_objects)
+        frame_number += 1
+        timestamp_ms = int((time.perf_counter() - start_time) * 1000)
 
-    rgb_frame = cv2.cvtColor(
-        frame,
-        cv2.COLOR_BGR2RGB
-    )
+        detected_objects = track_objects(frame)
 
-    results = hands.process(rgb_frame)
-    draw_detected_objects(
-        frame,
-        detected_objects
-    )
-    if results.multi_hand_landmarks:
-        num_hands = len(results.multi_hand_landmarks)
-    else:
-        num_hands = 0
+        detected_objects = identity_tracker.update(detected_objects)
 
-
-    if num_hands == 0:
-
-        log_no_hand_frame(
-            csv_writer,
-            output_path.stem,
-            frame_number,
-            timestamp_ms
-        )
-
-        log_no_hand_interaction(
-            writer=interaction_csv_writer,
+        # Log object detections independently of hand detection
+        log_detected_objects(
+            writer=object_csv_writer,
+            detected_objects=detected_objects,
+            session_id=SESSION_ID,
             frame_number=frame_number,
             timestamp_ms=timestamp_ms,
-            session_id=SESSION_ID,
-            trial_id=TRIAL_ID,
-            repetition_number=REPETITION_NUMBER,
             task_id=CURRENT_TASK_ID,
             task_name=current_task["task_name"],
-            object_outcome=object_outcome
         )
 
+        if frame_number % 30 == 0:
+            # print(
+            #     "YOLO:",
+            #     [obj["class_name"] for obj in detected_objects]
+            # )
+
+            print(
+                "YOLO:",
+                [
+                    (
+                        obj["class_name"],
+                        round(obj["confidence"], 2)
+                    )
+                    for obj in detected_objects
+                ]
+            )
+
+        permitted_detected_objects, irrelevant_detected_objects = (filter_objects_by_class(detected_objects, permitted_objects))
+
+        # Temporary tracking-ID diagnostic
+        if frame_number % 30 == 0:
+            print(
+                "TRACKING DEBUG:",
+                [
+                    {
+                        "class": obj["class_name"],
+                        "track_id": obj.get("track_id"),
+                        "status": obj.get("tracking_status")
+                    }
+                    for obj in permitted_detected_objects
+                ]
+            )
+
+        if frame_number % 30 == 0:
+            print(
+                "Permitted:",
+                [
+                    obj["class_name"]
+                    for obj in permitted_detected_objects
+                ]
+            )
 
 
-    if results.multi_hand_landmarks:
+        object_outcome = object_detection_tracker.update(permitted_detected_objects)
 
-        for hand_index, hand_landmarks in enumerate(results.multi_hand_landmarks):
+        rgb_frame = cv2.cvtColor(
+            frame,
+            cv2.COLOR_BGR2RGB
+        )
 
-            handedness = results.multi_handedness[hand_index]
+        results = hands.process(rgb_frame)
+        draw_detected_objects(
+            frame,
+            detected_objects
+        )
 
-            hand_label = handedness.classification[0].label
-            hand_confidence = handedness.classification[0].score
+        # Display YOLO and application-level object IDs
+        for tracked_object in permitted_detected_objects:
+            yolo_id = tracked_object.get("track_id")
+            object_id = tracked_object.get("object_id")
 
-            if hand_label == "Left":
-                hand_label = "Right"
-            else:
-                hand_label = "Left"
+            x1, y1, x2, y2 = tracked_object["bounding_box"]
 
-            # Draw the hand skeleton
-            mp_drawing.draw_landmarks(
+            cv2.putText(
                 frame,
-                hand_landmarks,
-                mp_hands.HAND_CONNECTIONS
+                f"YOLO: {yolo_id} | Object: {object_id}",
+                (x1 + 5, y1 + 25),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 0, 0),
+                2
             )
 
-            # -----------------------------
-            # Store all 21 landmarks
-            # -----------------------------
+        if results.multi_hand_landmarks:
+            num_hands = len(results.multi_hand_landmarks)
+        else:
+            num_hands = 0
 
-            hand_data = {}
 
-            for landmark_name in mp_hands.HandLandmark:
+        if num_hands == 0:
 
-                landmark = hand_landmarks.landmark[landmark_name.value]
-
-                x_px = int(landmark.x * actual_width)
-                y_px = int(landmark.y * actual_height)
-
-                hand_data[landmark_name.name] = {
-                    "x_norm": landmark.x,
-                    "y_norm": landmark.y,
-                    "z_rel": landmark.z,
-                    "x_px": x_px,
-                    "y_px": y_px
-                }
-
-            hand_center = calculate_hand_center(hand_data)
-
-            wrist_x = hand_data["WRIST"]["x_px"]
-            wrist_y = hand_data["WRIST"]["y_px"]
-
-            hand_near_object = False
-            fingertip_count = 0
-            object_name = None
-            object_distance = None
-
-            nearest_object, object_distance = find_nearest_object(
-                hand_center,
-                permitted_detected_objects
+            log_no_hand_frame(
+                csv_writer,
+                output_path.stem,
+                frame_number,
+                timestamp_ms
             )
 
-            if nearest_object is not None:
-
-                object_name = nearest_object["class_name"]
-
-                # -----------------------------
-                # Object movement
-                # -----------------------------
-                current_object_center = nearest_object["center"]
-
-                object_movement = calculate_object_movement(
-                    previous_object_center,
-                    current_object_center
-                )
-
-                previous_object_center = current_object_center
-
-                # -----------------------------
-                # Hand-object proximity
-                # -----------------------------
-                hand_near_object = is_hand_near_object(
-                    hand_center,
-                    nearest_object
-                )
-
-                # -----------------------------
-                # Fingertip-object proximity
-                # -----------------------------
-                fingertip_count = count_fingertips_near_object(
-                    hand_data,
-                    nearest_object
-                )
-
-                # cv2.putText(
-                #     frame,
-                #     interaction_text,
-                #     (wrist_x, wrist_y - 90),
-                #     cv2.FONT_HERSHEY_SIMPLEX,
-                #     0.6,
-                #     (255, 255, 0),
-                #     2
-                # )
-
-            
-
-                # cv2.putText(
-                #     frame,
-                #     interaction_text,
-                #     (wrist_x, wrist_y - 90),
-                #     cv2.FONT_HERSHEY_SIMPLEX,
-                #     0.6,
-                #     (255, 255, 0),
-                #     2
-                # )
-
-            # -----------------------------
-            # Wrist-relative coordinates
-            # -----------------------------
-
-            
-
-            for landmark_name, coordinates in hand_data.items():
-
-                coordinates["x_rel"] = coordinates["x_px"] - wrist_x
-                coordinates["y_rel"] = coordinates["y_px"] - wrist_y
-
-
-            if nearest_object is not None:
-
-                object_name = nearest_object["class_name"]
-
-                cv2.putText(
-                    frame,
-                    f"Nearest object: {object_name} ({object_distance:.0f}px)",
-                    (wrist_x, wrist_y - 90),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (255, 255, 0),
-                    2
-                )
-            # -----------------------------
-            # Scale normalization
-            # -----------------------------
-
-            middle_mcp_x = hand_data["MIDDLE_FINGER_MCP"]["x_rel"]
-            middle_mcp_y = hand_data["MIDDLE_FINGER_MCP"]["y_rel"]
-
-            reference_distance = (
-                middle_mcp_x ** 2 + middle_mcp_y ** 2
-            ) ** 0.5
-
-            if reference_distance > 0:
-
-                for landmark_name, coordinates in hand_data.items():
-
-                    coordinates["x_scaled"] = (
-                        coordinates["x_rel"] / reference_distance
-                    )
-
-                    coordinates["y_scaled"] = (
-                        coordinates["y_rel"] / reference_distance
-                    )
-            else:
-                continue
-
-
-            # -----------------------------
-            # Thumb-index distance
-            # -----------------------------
-
-            thumb_index_distance = calculate_thumb_index_distance(hand_data)
-
-
-            # -----------------------------
-            # Pinch detection
-            # -----------------------------
-            predicted_grasp, grasp_confidence = classify_pinch(thumb_index_distance)
-
-
-
-            # -----------------------------
-            # Cylindrical grasp detection
-            # -----------------------------
-            is_cylindrical, cylindrical_confidence = detect_cylindrical_grasp(hand_data)
-
-            grasp_text = (f"{hand_label}: {predicted_grasp} "
-                        f"({grasp_confidence:.1f}%)")
-
-
-            # -----------------------------
-            # Spherical grasp detection
-            # -----------------------------
-            finger_angles = calculate_finger_angles(hand_data)
-
-            thumb_distances = calculate_thumb_opposition(hand_data)
-
-            thumb_middle_distance = thumb_distances["thumb_middle"]
-
-            finger_spread = calculate_finger_spread(hand_data)
-            is_spherical, spherical_confidence = detect_spherical_grasp(
-                finger_angles,
-                thumb_index_distance,
-                thumb_middle_distance,
-                finger_spread
-            )
-
-
-
-            # -----------------------------
-            # Large-aperture palmar grasp detection
-            # -----------------------------
-            hand_aperture = calculate_hand_aperture(hand_data)
-            is_large_palmar, large_palmar_confidence = (
-                detect_large_aperture_palmar_grasp(
-                    finger_angles,
-                    finger_spread,
-                    hand_aperture,
-                    thumb_index_distance,
-                    thumb_middle_distance
-                )
-            )
-
-
-
-            # -----------------------------
-            # Whole-hand power grip detection
-            # -----------------------------
-            is_power_grip, power_grip_confidence = detect_whole_hand_power_grip(
-                finger_angles,
-                thumb_index_distance,
-                thumb_middle_distance,
-                hand_aperture
-            )
-
-            # -----------------------------
-            # Handle grasp detection
-            # -----------------------------
-            is_handle_grasp, handle_grasp_confidence = detect_handle_grasp(
-                finger_angles,
-                thumb_index_distance,
-                thumb_middle_distance,
-                hand_aperture,
-                finger_spread
-            )
-
-
-
-            # -----------------------------
-            # Hook grasp detection
-            # -----------------------------
-            is_hook_grasp, hook_grasp_confidence = detect_hook_grasp(
-                finger_angles,
-                thumb_index_distance,
-                thumb_middle_distance,
-                hand_aperture
-            )
-
-            # -----------------------------
-            # Pincer grasp detection
-            # -----------------------------
-            is_pincer, pincer_confidence = detect_pincer_grasp(
-                finger_angles,
-                thumb_index_distance,
-                thumb_middle_distance
-            )
-
-            # -----------------------------
-            # Tip pinch detection
-            # -----------------------------
-            is_tip_pinch, tip_pinch_confidence = detect_tip_pinch(
-                finger_angles,
-                thumb_index_distance,
-                thumb_middle_distance
-            )
-
-
-
-            # -----------------------------
-            # Tripod grasp detection
-            # -----------------------------
-            is_tripod, tripod_confidence = detect_tripod_grasp(
-                finger_angles,
-                thumb_index_distance,
-                thumb_middle_distance
-            )
-
-
-
-            # -----------------------------
-            # Lateral pinch detection
-            # -----------------------------
-            thumb_index_side_distance = (
-                calculate_thumb_index_side_distance(hand_data)
-            )
-            is_lateral_pinch, lateral_pinch_confidence = detect_lateral_pinch(
-                finger_angles,
-                thumb_index_distance,
-                thumb_index_side_distance
-            )
-
-
-
-
-            # -----------------------------
-            # Multidigit precision grasp detection
-            # -----------------------------
-            thumb_fingertip_distances = (
-                calculate_thumb_fingertip_distances(hand_data)
-            )
-            is_multidigit_precision, multidigit_precision_confidence = (
-                detect_multidigit_precision_grasp(
-                    finger_angles,
-                    thumb_fingertip_distances
-                )
-            )
-
-
-            grasp_detected = any([
-                is_cylindrical,
-                is_spherical,
-                is_large_palmar,
-                is_power_grip,
-                is_handle_grasp,
-                is_hook_grasp,
-                is_pincer,
-                is_tip_pinch,
-                is_tripod,
-                is_lateral_pinch,
-                is_multidigit_precision,
-            ])
-
-            candidate_interaction_state = determine_interaction_state(
-                hand_near_object=hand_near_object,
-                fingertips_near_object=fingertip_count,
-                grasp_detected=grasp_detected
-            )
-
-            interaction_state = interaction_tracker.update(
-                candidate_interaction_state
-            )
-
-            frame_record = create_frame_record(
+            log_no_hand_interaction(
+                writer=interaction_csv_writer,
                 frame_number=frame_number,
                 timestamp_ms=timestamp_ms,
-
                 session_id=SESSION_ID,
                 trial_id=TRIAL_ID,
                 repetition_number=REPETITION_NUMBER,
-
                 task_id=CURRENT_TASK_ID,
                 task_name=current_task["task_name"],
-
-                hand_label=hand_label,
-                hand_confidence=hand_confidence,
-                hand_center=hand_center,
-
-                grasp_detected=grasp_detected,
-                interaction_state=interaction_state,
-
-                detected_object=nearest_object,
-                object_distance=object_distance,
-                object_movement=object_movement,
-                fingertip_count=fingertip_count,
-
-                object_outcome=object_outcome,
+                object_outcome=object_outcome
             )
 
-            log_frame_record(
-                interaction_csv_writer,
-                frame_record
-            )
 
-            if frame_number % 30 == 0:
-                print(frame_record)
 
-            if object_name is not None:
-                interaction_text = (
-                    f"Raw: {candidate_interaction_state} | "
-                    f"Stable: {interaction_state}"
-                )
-            else:
-                interaction_text = (
-                    f"Raw: {candidate_interaction_state} | "
-                    f"Stable: {interaction_state}"
+        if results.multi_hand_landmarks:
+
+            for hand_index, hand_landmarks in enumerate(results.multi_hand_landmarks):
+
+                handedness = results.multi_handedness[hand_index]
+
+                hand_label = handedness.classification[0].label
+                hand_confidence = handedness.classification[0].score
+
+                if hand_label == "Left":
+                    hand_label = "Right"
+                else:
+                    hand_label = "Left"
+
+                # Draw the hand skeleton
+                mp_drawing.draw_landmarks(
+                    frame,
+                    hand_landmarks,
+                    mp_hands.HAND_CONNECTIONS
                 )
 
-            cv2.putText(
-                frame,
-                interaction_text,
-                (wrist_x, wrist_y - 240),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (255, 255, 0),
-                2
-            )
+                # -----------------------------
+                # Store all 21 landmarks
+                # -----------------------------
 
-            if object_name is not None:
+                hand_data = {}
+
+                for landmark_name in mp_hands.HandLandmark:
+
+                    landmark = hand_landmarks.landmark[landmark_name.value]
+
+                    x_px = int(landmark.x * actual_width)
+                    y_px = int(landmark.y * actual_height)
+
+                    hand_data[landmark_name.name] = {
+                        "x_norm": landmark.x,
+                        "y_norm": landmark.y,
+                        "z_rel": landmark.z,
+                        "x_px": x_px,
+                        "y_px": y_px
+                    }
+
+                hand_center = calculate_hand_center(hand_data)
+
+                wrist_x = hand_data["WRIST"]["x_px"]
+                wrist_y = hand_data["WRIST"]["y_px"]
+
+                hand_near_object = False
+                fingertip_count = 0
+                object_name = None
+                object_distance = None
+
+                nearest_object, object_distance = find_nearest_object(
+                    hand_center,
+                    permitted_detected_objects
+                )
+
+                if nearest_object is not None:
+
+                    object_name = nearest_object["class_name"]
+
+                    # -----------------------------
+                    # Object movement
+                    # -----------------------------
+                    current_object_center = nearest_object["center"]
+
+                    object_movement = calculate_object_movement(
+                        previous_object_center,
+                        current_object_center
+                    )
+
+                    previous_object_center = current_object_center
+
+                    # -----------------------------
+                    # Hand-object proximity
+                    # -----------------------------
+                    hand_near_object = is_hand_near_object(
+                        hand_center,
+                        nearest_object
+                    )
+
+                    # -----------------------------
+                    # Fingertip-object proximity
+                    # -----------------------------
+                    fingertip_count = count_fingertips_near_object(
+                        hand_data,
+                        nearest_object
+                    )
+
+                    # cv2.putText(
+                    #     frame,
+                    #     interaction_text,
+                    #     (wrist_x, wrist_y - 90),
+                    #     cv2.FONT_HERSHEY_SIMPLEX,
+                    #     0.6,
+                    #     (255, 255, 0),
+                    #     2
+                    # )
+
+                
+
+                    # cv2.putText(
+                    #     frame,
+                    #     interaction_text,
+                    #     (wrist_x, wrist_y - 90),
+                    #     cv2.FONT_HERSHEY_SIMPLEX,
+                    #     0.6,
+                    #     (255, 255, 0),
+                    #     2
+                    # )
+
+                # -----------------------------
+                # Wrist-relative coordinates
+                # -----------------------------
+
+                
+
+                for landmark_name, coordinates in hand_data.items():
+
+                    coordinates["x_rel"] = coordinates["x_px"] - wrist_x
+                    coordinates["y_rel"] = coordinates["y_px"] - wrist_y
+
+
+                if nearest_object is not None:
+
+                    object_name = nearest_object["class_name"]
+
+                    cv2.putText(
+                        frame,
+                        f"Nearest object: {object_name} ({object_distance:.0f}px)",
+                        (wrist_x, wrist_y - 90),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (255, 255, 0),
+                        2
+                    )
+                # -----------------------------
+                # Scale normalization
+                # -----------------------------
+
+                middle_mcp_x = hand_data["MIDDLE_FINGER_MCP"]["x_rel"]
+                middle_mcp_y = hand_data["MIDDLE_FINGER_MCP"]["y_rel"]
+
+                reference_distance = (
+                    middle_mcp_x ** 2 + middle_mcp_y ** 2
+                ) ** 0.5
+
+                if reference_distance > 0:
+
+                    for landmark_name, coordinates in hand_data.items():
+
+                        coordinates["x_scaled"] = (
+                            coordinates["x_rel"] / reference_distance
+                        )
+
+                        coordinates["y_scaled"] = (
+                            coordinates["y_rel"] / reference_distance
+                        )
+                else:
+                    continue
+
+
+                # -----------------------------
+                # Thumb-index distance
+                # -----------------------------
+
+                thumb_index_distance = calculate_thumb_index_distance(hand_data)
+
+
+                # -----------------------------
+                # Pinch detection
+                # -----------------------------
+                predicted_grasp, grasp_confidence = classify_pinch(thumb_index_distance)
+
+
+
+                # -----------------------------
+                # Cylindrical grasp detection
+                # -----------------------------
+                is_cylindrical, cylindrical_confidence = detect_cylindrical_grasp(hand_data)
+
+                grasp_text = (f"{hand_label}: {predicted_grasp} "
+                            f"({grasp_confidence:.1f}%)")
+
+
+                # -----------------------------
+                # Spherical grasp detection
+                # -----------------------------
+                finger_angles = calculate_finger_angles(hand_data)
+
+                thumb_distances = calculate_thumb_opposition(hand_data)
+
+                thumb_middle_distance = thumb_distances["thumb_middle"]
+
+                finger_spread = calculate_finger_spread(hand_data)
+                is_spherical, spherical_confidence = detect_spherical_grasp(
+                    finger_angles,
+                    thumb_index_distance,
+                    thumb_middle_distance,
+                    finger_spread
+                )
+
+
+
+                # -----------------------------
+                # Large-aperture palmar grasp detection
+                # -----------------------------
+                hand_aperture = calculate_hand_aperture(hand_data)
+                is_large_palmar, large_palmar_confidence = (
+                    detect_large_aperture_palmar_grasp(
+                        finger_angles,
+                        finger_spread,
+                        hand_aperture,
+                        thumb_index_distance,
+                        thumb_middle_distance
+                    )
+                )
+
+
+
+                # -----------------------------
+                # Whole-hand power grip detection
+                # -----------------------------
+                is_power_grip, power_grip_confidence = detect_whole_hand_power_grip(
+                    finger_angles,
+                    thumb_index_distance,
+                    thumb_middle_distance,
+                    hand_aperture
+                )
+
+                # -----------------------------
+                # Handle grasp detection
+                # -----------------------------
+                is_handle_grasp, handle_grasp_confidence = detect_handle_grasp(
+                    finger_angles,
+                    thumb_index_distance,
+                    thumb_middle_distance,
+                    hand_aperture,
+                    finger_spread
+                )
+
+
+
+                # -----------------------------
+                # Hook grasp detection
+                # -----------------------------
+                is_hook_grasp, hook_grasp_confidence = detect_hook_grasp(
+                    finger_angles,
+                    thumb_index_distance,
+                    thumb_middle_distance,
+                    hand_aperture
+                )
+
+                # -----------------------------
+                # Pincer grasp detection
+                # -----------------------------
+                is_pincer, pincer_confidence = detect_pincer_grasp(
+                    finger_angles,
+                    thumb_index_distance,
+                    thumb_middle_distance
+                )
+
+                # -----------------------------
+                # Tip pinch detection
+                # -----------------------------
+                is_tip_pinch, tip_pinch_confidence = detect_tip_pinch(
+                    finger_angles,
+                    thumb_index_distance,
+                    thumb_middle_distance
+                )
+
+
+
+                # -----------------------------
+                # Tripod grasp detection
+                # -----------------------------
+                is_tripod, tripod_confidence = detect_tripod_grasp(
+                    finger_angles,
+                    thumb_index_distance,
+                    thumb_middle_distance
+                )
+
+
+
+                # -----------------------------
+                # Lateral pinch detection
+                # -----------------------------
+                thumb_index_side_distance = (
+                    calculate_thumb_index_side_distance(hand_data)
+                )
+                is_lateral_pinch, lateral_pinch_confidence = detect_lateral_pinch(
+                    finger_angles,
+                    thumb_index_distance,
+                    thumb_index_side_distance
+                )
+
+
+
+
+                # -----------------------------
+                # Multidigit precision grasp detection
+                # -----------------------------
+                thumb_fingertip_distances = (
+                    calculate_thumb_fingertip_distances(hand_data)
+                )
+                is_multidigit_precision, multidigit_precision_confidence = (
+                    detect_multidigit_precision_grasp(
+                        finger_angles,
+                        thumb_fingertip_distances
+                    )
+                )
+
+
+                grasp_detected = any([
+                    is_cylindrical,
+                    is_spherical,
+                    is_large_palmar,
+                    is_power_grip,
+                    is_handle_grasp,
+                    is_hook_grasp,
+                    is_pincer,
+                    is_tip_pinch,
+                    is_tripod,
+                    is_lateral_pinch,
+                    is_multidigit_precision,
+                ])
+
+                candidate_interaction_state = determine_interaction_state(
+                    hand_near_object=hand_near_object,
+                    fingertips_near_object=fingertip_count,
+                    grasp_detected=grasp_detected
+                )
+
+                interaction_state = interaction_tracker.update(
+                    candidate_interaction_state
+                )
+
+                frame_record = create_frame_record(
+                    frame_number=frame_number,
+                    timestamp_ms=timestamp_ms,
+
+                    session_id=SESSION_ID,
+                    trial_id=TRIAL_ID,
+                    repetition_number=REPETITION_NUMBER,
+
+                    task_id=CURRENT_TASK_ID,
+                    task_name=current_task["task_name"],
+
+                    hand_label=hand_label,
+                    hand_confidence=hand_confidence,
+                    hand_center=hand_center,
+
+                    grasp_detected=grasp_detected,
+                    interaction_state=interaction_state,
+
+                    detected_object=nearest_object,
+                    object_distance=object_distance,
+                    object_movement=object_movement,
+                    fingertip_count=fingertip_count,
+
+                    object_outcome=object_outcome,
+                )
+
+                log_frame_record(
+                    interaction_csv_writer,
+                    frame_record
+                )
+
+                if frame_number % 30 == 0:
+                    print(frame_record)
+
+                if object_name is not None:
+                    interaction_text = (
+                        f"Raw: {candidate_interaction_state} | "
+                        f"Stable: {interaction_state}"
+                    )
+                else:
+                    interaction_text = (
+                        f"Raw: {candidate_interaction_state} | "
+                        f"Stable: {interaction_state}"
+                    )
 
                 cv2.putText(
                     frame,
-                    f"Object movement: {object_movement:.1f}px",
-                    (wrist_x, wrist_y - 150),
+                    interaction_text,
+                    (wrist_x, wrist_y - 240),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.6,
                     (255, 255, 0),
                     2
                 )
 
+                if object_name is not None:
 
-            if object_name is not None:
+                    cv2.putText(
+                        frame,
+                        f"Object movement: {object_movement:.1f}px",
+                        (wrist_x, wrist_y - 150),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (255, 255, 0),
+                        2
+                    )
+
+
+                if object_name is not None:
+
+                    cv2.putText(
+                        frame,
+                        f"Nearest: {object_name} ({object_distance:.0f}px)",
+                        (wrist_x, wrist_y - 120),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (255, 255, 0),
+                        2
+                    )
 
                 cv2.putText(
+                        frame,
+                        f"Object movement: {object_movement:.1f}px",
+                        (wrist_x, wrist_y - 180),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (255, 255, 0),
+                        2
+                    )
+
+                
+                cv2.putText(
                     frame,
-                    f"Nearest: {object_name} ({object_distance:.0f}px)",
-                    (wrist_x, wrist_y - 120),
+                    interaction_text,
+                    (wrist_x, wrist_y - 210),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.6,
                     (255, 255, 0),
                     2
                 )
-
-            cv2.putText(
-                    frame,
-                    f"Object movement: {object_movement:.1f}px",
-                    (wrist_x, wrist_y - 180),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (255, 255, 0),
-                    2
-                )
-
             
-            cv2.putText(
-                frame,
-                interaction_text,
-                (wrist_x, wrist_y - 210),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (255, 255, 0),
-                2
-            )
+                cv2.putText(
+                    frame,
+                    grasp_text,
+                    (wrist_x, wrist_y - 60),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 255, 0),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    f"Cylindrical: {cylindrical_confidence:.1f}%",
+                    (20, 170),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    f"Spherical: {spherical_confidence:.1f}%",
+                    (20, 110),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+
+                cv2.putText(
+                    frame,
+                    f"Large Palmar: {is_large_palmar} ({large_palmar_confidence:.1f}%)",
+                    (20, 140),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+
+                cv2.putText(
+                    frame,
+                    f"Power Grip: {is_power_grip} ({power_grip_confidence:.1f}%)",
+                    (20, 200),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    f"Handle Grasp: {is_handle_grasp} ({handle_grasp_confidence:.1f}%)",
+                    (20, 230),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+
+
+                cv2.putText(
+                    frame,
+                    f"Hook Grasp: {is_hook_grasp} ({hook_grasp_confidence:.1f}%)",
+                    (20, 260),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+
+
+                cv2.putText(
+                    frame,
+                    f"Pincer: {is_pincer} ({pincer_confidence:.1f}%)",
+                    (20, 290),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+
+                cv2.putText(
+                    frame,
+                    f"Tip Pinch: {is_tip_pinch} ({tip_pinch_confidence:.1f}%)",
+                    (20, 320),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+
+
+
+                cv2.putText(
+                    frame,
+                    f"Tripod: {is_tripod} ({tripod_confidence:.1f}%)",
+                    (20, 350),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+
+
+                cv2.putText(
+                    frame,
+                    f"Lateral Pinch: {is_lateral_pinch} ({lateral_pinch_confidence:.1f}%)",
+                    (20, 380),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+
+
+                cv2.putText(
+                    frame,
+                    f"Multidigit Precision: {is_multidigit_precision} "
+                    f"({multidigit_precision_confidence:.1f}%)",
+                    (20, 410),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (255, 255, 255),
+                    2
+                )
+
+                log_hand_landmarks(
+                csv_writer,
+                output_path.stem,
+                frame_number,
+                timestamp_ms,
+                num_hands,
+                hand_label,
+                hand_confidence,
+                hand_data,
+                mp_hands.HandLandmark,
+                thumb_index_distance,
+                predicted_grasp,
+                grasp_confidence)
+
+
+                
+
+        cv2.putText(
+            frame,
+            f"Hands detected: {num_hands}",
+            (30, 80),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 0),
+            2
+        )
+
+
+        cv2.putText(
+            frame,
+            f"Permitted objects: {len(permitted_detected_objects)}",
+            (30, 450),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            2
+        )
+
+        cv2.putText(
+            frame,
+            f"Irrelevant objects: {len(irrelevant_detected_objects)}",
+            (30, 480),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            2
+        )
+
         
-            cv2.putText(
-                frame,
-                grasp_text,
-                (wrist_x, wrist_y - 60),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2
-            )
 
-            cv2.putText(
-                frame,
-                f"Cylindrical: {cylindrical_confidence:.1f}%",
-                (20, 170),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
+        writer.write(frame)
 
-            cv2.putText(
-                frame,
-                f"Spherical: {spherical_confidence:.1f}%",
-                (20, 110),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
+        cv2.imshow("Camera Capture", frame)
 
+        key = cv2.waitKey(1) & 0xFF
 
-            cv2.putText(
-                frame,
-                f"Large Palmar: {is_large_palmar} ({large_palmar_confidence:.1f}%)",
-                (20, 140),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
-
-
-            cv2.putText(
-                frame,
-                f"Power Grip: {is_power_grip} ({power_grip_confidence:.1f}%)",
-                (20, 200),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
-
-            cv2.putText(
-                frame,
-                f"Handle Grasp: {is_handle_grasp} ({handle_grasp_confidence:.1f}%)",
-                (20, 230),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
+        if key == ord("q"):
+            break
 
 
 
-            cv2.putText(
-                frame,
-                f"Hook Grasp: {is_hook_grasp} ({hook_grasp_confidence:.1f}%)",
-                (20, 260),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
+    # -----------------------------
+    # Cleanup
+    # -----------------------------
 
+finally:
+    camera.release()
+    writer.release()
+    csv_file.close()
+    object_csv_file.close()
+    interaction_csv_file.close()
+    hands.close()
+    cv2.destroyAllWindows()
 
-
-            cv2.putText(
-                frame,
-                f"Pincer: {is_pincer} ({pincer_confidence:.1f}%)",
-                (20, 290),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
-
-
-            cv2.putText(
-                frame,
-                f"Tip Pinch: {is_tip_pinch} ({tip_pinch_confidence:.1f}%)",
-                (20, 320),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
-
-
-
-
-            cv2.putText(
-                frame,
-                f"Tripod: {is_tripod} ({tripod_confidence:.1f}%)",
-                (20, 350),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
-
-
-
-            cv2.putText(
-                frame,
-                f"Lateral Pinch: {is_lateral_pinch} ({lateral_pinch_confidence:.1f}%)",
-                (20, 380),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
-
-
-
-            cv2.putText(
-                frame,
-                f"Multidigit Precision: {is_multidigit_precision} "
-                f"({multidigit_precision_confidence:.1f}%)",
-                (20, 410),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (255, 255, 255),
-                2
-            )
-
-            log_hand_landmarks(
-            csv_writer,
-            output_path.stem,
-            frame_number,
-            timestamp_ms,
-            num_hands,
-            hand_label,
-            hand_confidence,
-            hand_data,
-            mp_hands.HandLandmark,
-            thumb_index_distance,
-            predicted_grasp,
-            grasp_confidence)
-
-
-            
-
-    cv2.putText(
-        frame,
-        f"Hands detected: {num_hands}",
-        (30, 80),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 0),
-        2
-    )
-
-
-    cv2.putText(
-        frame,
-        f"Permitted objects: {len(permitted_detected_objects)}",
-        (30, 450),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
-        (255, 255, 255),
-        2
-    )
-
-    cv2.putText(
-        frame,
-        f"Irrelevant objects: {len(irrelevant_detected_objects)}",
-        (30, 480),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
-        (255, 255, 255),
-        2
-    )
-
-    
-
-    writer.write(frame)
-
-    cv2.imshow("Camera Capture", frame)
-
-    key = cv2.waitKey(1) & 0xFF
-
-    if key == ord("q"):
-        break
-
-
-
-# -----------------------------
-# Cleanup
-# -----------------------------
-
-
-camera.release()
-writer.release()
-csv_file.close()
-cv2.destroyAllWindows()
-interaction_csv_file.close()
 
 print("Recording stopped.")
 print(f"Video saved to: {output_path}")

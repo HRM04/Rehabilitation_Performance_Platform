@@ -57,6 +57,11 @@ def create_frame_record(
             "confidence": detected_object["confidence"],
             "bounding_box": detected_object["bounding_box"],
             "center": detected_object["center"],
+            "track_id": detected_object.get("track_id"),
+            "tracking_status": detected_object.get("tracking_status"),
+            "object_id": detected_object.get("object_id"),
+            "identity_status": detected_object.get("identity_status"),
+            "identity_confidence": detected_object.get("identity_confidence"),
         }
 
     return record
