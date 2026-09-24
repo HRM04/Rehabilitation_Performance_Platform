@@ -16,6 +16,8 @@ def create_frame_record(
     object_distance=None,
     object_movement=0.0,
     fingertip_count=0,
+    interaction_event=None,
+    grasp_duration_ms=None,
 ):
 
     record = {
@@ -40,6 +42,8 @@ def create_frame_record(
             "object_distance": object_distance,
             "object_movement": object_movement,
             "object_outcome": object_outcome,
+            "event": interaction_event,
+            "grasp_duration_ms": grasp_duration_ms,
         },
 
         "trial": {
@@ -49,6 +53,8 @@ def create_frame_record(
         },
 
         "object": None,
+
+        
     }
 
     if detected_object is not None:

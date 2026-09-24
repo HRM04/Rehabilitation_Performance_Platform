@@ -28,6 +28,10 @@ from src.object_detection.object_movement_tracker import ObjectMovementTracker
 from src.object_detection.duplicate_filter import filter_duplicate_objects
 from src.object_detection.object_segmentation import ObjectSegmenter
 from src.object_detection.geometry_association import attach_object_geometry
+from src.object_detection.interaction_event_tracker import (
+    InteractionEventTracker,
+)
+
 # -----------------------------
 # MediaPipe setup
 # -----------------------------
@@ -191,6 +195,16 @@ start_time = time.perf_counter()
 interaction_trackers = {
     "Left": InteractionStateTracker(required_frames=3),
     "Right": InteractionStateTracker(required_frames=3),
+}
+
+interaction_event_tracker = InteractionEventTracker(
+    manipulation_threshold=2.0,
+    transport_threshold=10.0,
+)
+
+last_associated_object_ids = {
+    "Left": None,
+    "Right": None,
 }
 
 HAND_LOSS_RESET_FRAMES = 5
@@ -365,6 +379,11 @@ try:
 
             else:
                 hand_missing_frames[hand_label] += 1
+
+                # Missing-hand detection is not evidence of release.
+                interaction_event_tracker.mark_unobserved(hand_label)
+
+                last_associated_object_ids[hand_label] = None
 
                 if hand_missing_frames[hand_label] == HAND_LOSS_RESET_FRAMES:
                     interaction_trackers[hand_label].reset()
@@ -738,6 +757,60 @@ try:
                     candidate_interaction_state
                 )
 
+                # Generate temporal events for the associated hand-object pair.
+                interaction_event = None
+
+                if associated_object is not None:
+
+                    current_object_id = associated_object.get("object_id")
+                    previous_object_id = last_associated_object_ids[hand_label]
+
+                    # A different associated object starts a new observed
+                    # interaction sequence for this hand.
+                    if (
+                        previous_object_id is not None
+                        and previous_object_id != current_object_id
+                    ):
+                        interaction_event_tracker.mark_unobserved(hand_label)
+
+                    if current_object_id is not None:
+                        interaction_event = interaction_event_tracker.update(
+                            hand_label=hand_label,
+                            object_id=current_object_id,
+                            interaction_state=interaction_state,
+                            object_movement=object_movement,
+                            timestamp_ms=timestamp_ms,
+                        )
+                    else:
+                        interaction_event_tracker.mark_unobserved(hand_label)
+
+                    last_associated_object_ids[hand_label] = current_object_id
+
+                else:
+                    # No valid hand-object association in this frame.
+                    interaction_event_tracker.mark_unobserved(hand_label)
+                    last_associated_object_ids[hand_label] = None
+
+                # Duration is available only when an observed release occurs.
+                grasp_duration_ms = None
+
+                if interaction_event == "RELEASE":
+                    object_id = (
+                        associated_object.get("object_id")
+                        if associated_object is not None
+                        else None
+                    )
+
+                    if object_id is not None:
+                        history = interaction_event_tracker.pair_history.get(
+                            (hand_label, object_id)
+                        )
+
+                        if history is not None:
+                            grasp_duration_ms = history.get(
+                                "last_grasp_duration_ms"
+                            )
+
                 frame_record = create_frame_record(
                     frame_number=frame_number,
                     timestamp_ms=timestamp_ms,
@@ -762,6 +835,9 @@ try:
                     fingertip_count=fingertip_count,
 
                     object_outcome=object_outcome,
+                    interaction_event=interaction_event,
+
+                    grasp_duration_ms=grasp_duration_ms,
                 )
 
                 log_frame_record(

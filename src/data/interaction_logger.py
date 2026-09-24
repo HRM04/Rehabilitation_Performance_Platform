@@ -28,7 +28,9 @@ def create_interaction_logger(output_path):
 
         "grasp_detected",
 
-        "interaction_state",
+       "interaction_state",
+        "interaction_event",
+        "grasp_duration_ms",
         "object_outcome",
         "fingertip_count",
         "object_distance",
@@ -96,6 +98,7 @@ def log_frame_record(
         "grasp_detected": hand["grasp_detected"],
 
         "interaction_state": interaction["state"],
+        "interaction_event": interaction.get("event"),
         "object_outcome": interaction["object_outcome"],
         "fingertip_count": interaction["fingertip_count"],
         "object_distance": interaction["object_distance"],
@@ -118,6 +121,10 @@ def log_frame_record(
 
         "object_center_x": None,
         "object_center_y": None,
+
+        "interaction_event": interaction.get("event"),
+        "grasp_duration_ms": interaction.get("grasp_duration_ms"),
+        
     }
 
     if detected_object is not None:
@@ -141,8 +148,9 @@ def log_frame_record(
             "tracking_status": detected_object.get("tracking_status"),
 
             "object_id": detected_object.get("object_id"),
-"identity_status": detected_object.get("identity_status"),
-"identity_confidence": detected_object.get("identity_confidence"),
+            "identity_status": detected_object.get("identity_status"),
+            "identity_confidence": detected_object.get("identity_confidence"),
+
         })
 
     writer.writerow(row)
@@ -188,6 +196,7 @@ def log_no_hand_interaction(
         "grasp_detected": None,
 
         "interaction_state": None,
+        "interaction_event": None,
         "object_outcome": object_outcome,
         "fingertip_count": None,
         "object_distance": None,
@@ -209,7 +218,9 @@ def log_no_hand_interaction(
         "bbox_y2": None,
 
         "object_center_x": None,
-        "object_center_y": None
+        "object_center_y": None,
+
+        "grasp_duration_ms": None,
     }
 
     writer.writerow(row)
