@@ -16,8 +16,7 @@ from src.grasp.grasp_classifier import (classify_pinch, detect_cylindrical_grasp
 from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks,log_no_hand_frame)
 from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects)
 from src.object_detection.hand_object_interaction import (find_nearest_object, is_hand_near_object, 
-                                                          count_fingertips_near_object, calculate_object_movement, 
-                                                          determine_interaction_state, InteractionStateTracker)
+                                                          count_fingertips_near_object, determine_interaction_state, InteractionStateTracker)
 from src.tasks.task_config import get_task
 from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects, filter_objects_by_class,)
 from src.data.frame_record import create_frame_record
@@ -25,7 +24,10 @@ from src.data.interaction_logger import (create_interaction_logger, log_frame_re
 from src.object_detection.object_detection_tracker import (ObjectDetectionTracker)
 from src.object_detection.object_tracker import (track_objects, ObjectIdentityTracker,)
 from src.data.object_logger import (create_object_logger, log_detected_objects,)
-
+from src.object_detection.object_movement_tracker import ObjectMovementTracker
+from src.object_detection.duplicate_filter import filter_duplicate_objects
+from src.object_detection.object_segmentation import ObjectSegmenter
+from src.object_detection.geometry_association import attach_object_geometry
 # -----------------------------
 # MediaPipe setup
 # -----------------------------
@@ -93,6 +95,16 @@ identity_tracker = ObjectIdentityTracker(
     max_missing_frames=5,
     max_match_distance=100,
 )
+
+movement_tracker = ObjectMovementTracker()
+
+# Experimental object-geometry settings
+SEGMENTATION_ENABLED = False
+
+segmenter = None
+
+if SEGMENTATION_ENABLED:
+    segmenter = ObjectSegmenter(confidence=0.25)
 
 # Create an independent object-detection log
 OBJECT_LOG_DIR = Path("data/raw/objects")
@@ -176,12 +188,18 @@ frame_number = 0
 
 start_time = time.perf_counter()
 
-previous_object_center = None
-object_movement = 0.0
+interaction_trackers = {
+    "Left": InteractionStateTracker(required_frames=3),
+    "Right": InteractionStateTracker(required_frames=3),
+}
 
-interaction_tracker = InteractionStateTracker(
-    required_frames=3
-)
+HAND_LOSS_RESET_FRAMES = 5
+
+hand_missing_frames = {
+    "Left": 0,
+    "Right": 0,
+}
+
 # -----------------------------
 # Capture loop
 # -----------------------------
@@ -192,8 +210,6 @@ try:
 
         success, frame = camera.read()
 
-        object_movement = 0.0
-
         if not success:
             print("Failed to capture frame.")
             break
@@ -202,9 +218,40 @@ try:
         frame_number += 1
         timestamp_ms = int((time.perf_counter() - start_time) * 1000)
 
-        detected_objects = track_objects(frame)
+        # Detect objects using YOLO.
+        raw_detected_objects = track_objects(frame)
 
+        # Flag near-identical detections before assigning application IDs.
+        detected_objects, probable_duplicates = filter_duplicate_objects(
+            raw_detected_objects,
+            iou_threshold=0.90
+        )
+
+        # Assign application-level IDs to the retained detections.
         detected_objects = identity_tracker.update(detected_objects)
+
+        # -------------------------------------------------
+        # Experimental object segmentation and geometry
+        # -------------------------------------------------
+
+        if SEGMENTATION_ENABLED and permitted_objects:
+
+            segmented_objects = segmenter.segment_objects(
+                frame,
+                allowed_classes=permitted_objects,
+            )
+
+            detected_objects = attach_object_geometry(
+                tracked_objects=detected_objects,
+                segmented_objects=segmented_objects,
+                min_iou=0.30,
+            )
+
+        # -------------------------------------------------
+        # Per-object movement
+        # -------------------------------------------------
+
+        object_movements = movement_tracker.update(detected_objects)
 
         # Log object detections independently of hand detection
         log_detected_objects(
@@ -295,6 +342,33 @@ try:
         else:
             num_hands = 0
 
+        # Identify which hands were detected in this frame.
+        detected_hand_labels = set()
+
+        if results.multi_hand_landmarks:
+            for handedness in results.multi_handedness:
+                hand_label = handedness.classification[0].label
+
+                # Apply the same handedness correction as the hand loop.
+                if hand_label == "Left":
+                    hand_label = "Right"
+                else:
+                    hand_label = "Left"
+
+                detected_hand_labels.add(hand_label)
+
+        # Update absence counters independently for each hand.
+        for hand_label in hand_missing_frames:
+
+            if hand_label in detected_hand_labels:
+                hand_missing_frames[hand_label] = 0
+
+            else:
+                hand_missing_frames[hand_label] += 1
+
+                if hand_missing_frames[hand_label] == HAND_LOSS_RESET_FRAMES:
+                    interaction_trackers[hand_label].reset()
+
 
         if num_hands == 0:
 
@@ -333,6 +407,8 @@ try:
                 else:
                     hand_label = "Left"
 
+                hand_missing_frames[hand_label] = 0
+
                 # Draw the hand skeleton
                 mp_drawing.draw_landmarks(
                     frame,
@@ -370,27 +446,33 @@ try:
                 fingertip_count = 0
                 object_name = None
                 object_distance = None
+                object_movement = 0.0
 
                 nearest_object, object_distance = find_nearest_object(
                     hand_center,
                     permitted_detected_objects
                 )
 
-                if nearest_object is not None:
+                if associated_object is not None:
 
                     object_name = nearest_object["class_name"]
 
-                    # -----------------------------
-                    # Object movement
-                    # -----------------------------
-                    current_object_center = nearest_object["center"]
+                # A nearby detection is only a candidate for hand-object association.
+                # Do not treat a distant object as the hand's interaction target.
+                associated_object = None
 
-                    object_movement = calculate_object_movement(
-                        previous_object_center,
-                        current_object_center
+                if nearest_object is not None:
+                    if is_hand_near_object(hand_center, nearest_object):
+                        associated_object = nearest_object
+
+
+                if associated_object is not None:
+                    associated_object_id = associated_object.get("object_id")
+
+                    object_movement = object_movements.get(
+                        associated_object_id,
+                        0.0
                     )
-
-                    previous_object_center = current_object_center
 
                     # -----------------------------
                     # Hand-object proximity
@@ -652,7 +734,7 @@ try:
                     grasp_detected=grasp_detected
                 )
 
-                interaction_state = interaction_tracker.update(
+                interaction_state = interaction_trackers[hand_label].update(
                     candidate_interaction_state
                 )
 
@@ -674,7 +756,7 @@ try:
                     grasp_detected=grasp_detected,
                     interaction_state=interaction_state,
 
-                    detected_object=nearest_object,
+                    detected_object=associated_object,
                     object_distance=object_distance,
                     object_movement=object_movement,
                     fingertip_count=fingertip_count,

@@ -193,3 +193,12 @@ class InteractionStateTracker:
 
 
         return self.current_state
+
+    def reset(self):
+        """
+        Clear the stable state and any pending state transition.
+        Call this when a hand has been missing for too long.
+        """
+        self.current_state = "NONE"
+        self.candidate_state = "NONE"
+        self.candidate_count = 0

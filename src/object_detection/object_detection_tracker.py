@@ -23,8 +23,9 @@ class ObjectDetectionTracker:
                 if self.missing_frame_count >= self.lost_after_frames:
                     return "LOST_DETECTION"
 
-            return "NO_PERMITTED_OBJECT"
+                return "TEMPORARILY_MISSING"
 
+            return "NO_PERMITTED_OBJECT"
 
         # At least one permitted object is visible
         self.object_seen_before = True

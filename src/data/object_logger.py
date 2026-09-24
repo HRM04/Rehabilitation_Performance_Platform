@@ -34,7 +34,13 @@ def create_object_logger(output_path):
         "bbox_y2",
         "object_center_x",
         "object_center_y",
-    ]
+        "orientation_deg",
+        "orientation_reliable",
+        "major_axis_px",
+        "minor_axis_px",
+        "aspect_ratio",
+        "geometry_association_iou",
+            ]
 
     writer = csv.DictWriter(
         csv_file,
@@ -63,6 +69,7 @@ def log_detected_objects(
     """
 
     for detected_object in detected_objects:
+        geometry = detected_object.get("geometry") or {}
 
         x1, y1, x2, y2 = detected_object["bounding_box"]
         center_x, center_y = detected_object["center"]
@@ -88,6 +95,12 @@ def log_detected_objects(
             "bbox_y2": y2,
             "object_center_x": center_x,
             "object_center_y": center_y,
+            "orientation_deg": geometry.get("orientation_deg"),
+            "orientation_reliable": geometry.get("orientation_reliable"),
+            "major_axis_px": geometry.get("major_axis_px"),
+            "minor_axis_px": geometry.get("minor_axis_px"),
+            "aspect_ratio": geometry.get("aspect_ratio"),
+            "geometry_association_iou": geometry.get("association_iou"),
         }
 
         writer.writerow(row)
