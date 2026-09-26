@@ -5,6 +5,7 @@ from pathlib import Path
 from src.capture.video_playback import play_video
 import mediapipe as mp
 import time
+import numpy as np
 
 from src.grasp.grasp_features import (calculate_finger_spread, calculate_hand_aperture, calculate_thumb_index_distance, 
                                     calculate_finger_angles,calculate_thumb_opposition, calculate_thumb_index_side_distance,
@@ -28,9 +29,10 @@ from src.object_detection.object_movement_tracker import ObjectMovementTracker
 from src.object_detection.duplicate_filter import filter_duplicate_objects
 from src.object_detection.object_segmentation import ObjectSegmenter
 from src.object_detection.geometry_association import attach_object_geometry
-from src.object_detection.interaction_event_tracker import (
-    InteractionEventTracker,
-)
+from src.object_detection.interaction_event_tracker import (InteractionEventTracker,)
+from src.pose.pose_detector import UpperBodyPoseDetector
+from src.pose.pose_logger import create_pose_logger, log_pose_frame
+from src.pose.joint_angles import calculate_upper_body_angles
 
 # -----------------------------
 # MediaPipe setup
@@ -96,14 +98,14 @@ object_detection_tracker = ObjectDetectionTracker(
 )
 
 identity_tracker = ObjectIdentityTracker(
-    max_missing_frames=5,
+    max_missing_frames=15,
     max_match_distance=100,
 )
 
 movement_tracker = ObjectMovementTracker()
 
 # Experimental object-geometry settings
-SEGMENTATION_ENABLED = False
+SEGMENTATION_ENABLED = True
 
 segmenter = None
 
@@ -122,6 +124,17 @@ object_csv_path = (
 object_csv_file, object_csv_writer = create_object_logger(
     object_csv_path
 )
+
+# Create a separate CSV for upper-body pose landmarks.
+pose_output_dir = Path("data/raw/pose")
+pose_output_dir.mkdir(parents=True, exist_ok=True)
+
+pose_output_path = pose_output_dir / f"{SESSION_ID}_pose_landmarks.csv"
+
+pose_csv_file, pose_csv_writer = create_pose_logger(pose_output_path)
+
+
+pose_detector = UpperBodyPoseDetector()
 
 # -----------------------------
 # Open camera
@@ -207,6 +220,20 @@ last_associated_object_ids = {
     "Right": None,
 }
 
+# Track consecutive frames without a valid hand-object association.
+association_missing_frames = {
+    "Left": 0,
+    "Right": 0,
+}
+
+ASSOCIATION_LOSS_RESET_FRAMES = 5
+
+# Display-only memory: does not affect event detection or CSV logging.
+display_events = {
+    "Left": None,
+    "Right": None,
+}
+
 HAND_LOSS_RESET_FRAMES = 5
 
 hand_missing_frames = {
@@ -228,9 +255,99 @@ try:
             print("Failed to capture frame.")
             break
 
+        # Detect upper-body landmarks in the current camera frame.
+        upper_body_landmarks = pose_detector.detect(frame)
+
+        # Calculate preliminary 2D joint angles from the detected pose.
+        upper_body_angles = calculate_upper_body_angles(
+            upper_body_landmarks
+        )
+
+
+        # Draw the upper-body skeleton when pose landmarks are available.
+        if upper_body_landmarks is not None:
+            frame_height, frame_width = frame.shape[:2]
+
+            # Connect the shoulders, arms, and torso.
+            upper_body_connections = [
+                ("left_shoulder", "right_shoulder"),
+                ("left_shoulder", "left_elbow"),
+                ("left_elbow", "left_wrist"),
+                ("right_shoulder", "right_elbow"),
+                ("right_elbow", "right_wrist"),
+                ("left_shoulder", "left_hip"),
+                ("right_shoulder", "right_hip"),
+                ("left_hip", "right_hip"),
+            ]
+
+            for start_name, end_name in upper_body_connections:
+                start = upper_body_landmarks[start_name]
+                end = upper_body_landmarks[end_name]
+
+                # Do not draw a connection if either landmark is poorly visible.
+                if start["visibility"] < 0.5 or end["visibility"] < 0.5:
+                    continue
+
+                start_point = (
+                    int(start["x"] * frame_width),
+                    int(start["y"] * frame_height),
+                )
+                end_point = (
+                    int(end["x"] * frame_width),
+                    int(end["y"] * frame_height),
+                )
+
+                cv2.line(frame, start_point, end_point, (0, 255, 255), 2)
+
+            # Draw a circle at each sufficiently visible landmark.
+            for landmark in upper_body_landmarks.values():
+                if landmark["visibility"] < 0.5:
+                    continue
+
+                point = (
+                    int(landmark["x"] * frame_width),
+                    int(landmark["y"] * frame_height),
+                )
+
+                cv2.circle(frame, point, 5, (255, 0, 255), -1)
+
+
+                # Display the calculated elbow and shoulder angles.
+                angle_labels = [
+                    ("Left elbow", upper_body_angles["left_elbow"]),
+                    ("Right elbow", upper_body_angles["right_elbow"]),
+                    ("Left shoulder", upper_body_angles["left_shoulder"]),
+                    ("Right shoulder", upper_body_angles["right_shoulder"]),
+                ]
+
+                for index, (joint_name, angle) in enumerate(angle_labels):
+                    angle_text = (
+                        f"{joint_name}: {angle:.1f} deg"
+                        if angle is not None
+                        else f"{joint_name}: N/A"
+                    )
+
+                    cv2.putText(
+                        frame,
+                        angle_text,
+                        (20, 350 + index * 25),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.55,
+                        (255, 255, 0),
+                        2,
+                    )
 
         frame_number += 1
         timestamp_ms = int((time.perf_counter() - start_time) * 1000)
+
+        # Save upper-body landmarks using the current frame's timestamp.
+        log_pose_frame(
+            writer=pose_csv_writer,
+            frame_number=frame_number,
+            timestamp_ms=timestamp_ms,
+            upper_body_landmarks=upper_body_landmarks,
+            upper_body_angles=upper_body_angles,
+        )
 
         # Detect objects using YOLO.
         raw_detected_objects = track_objects(frame)
@@ -243,6 +360,18 @@ try:
 
         # Assign application-level IDs to the retained detections.
         detected_objects = identity_tracker.update(detected_objects)
+
+        # Temporary diagnostic: inspect application-level object identity.
+        for obj in detected_objects:
+            if obj["class_name"] == "bottle":
+                print(
+                    f"[IDENTITY DEBUG] "
+                    f"Frame: {frame_number} | "
+                    f"YOLO ID: {obj.get('track_id')} | "
+                    f"Object ID: {obj.get('object_id')} | "
+                    f"Status: {obj.get('identity_status')} | "
+                    f"Centre: {obj.get('center')}"
+                )
 
         # -------------------------------------------------
         # Experimental object segmentation and geometry
@@ -351,6 +480,81 @@ try:
                 2
             )
 
+
+            # Draw segmentation geometry for this tracked object.
+            geometry = tracked_object.get("geometry")
+
+            if geometry is not None:
+                polygon = geometry.get("polygon")
+                oriented_box = geometry.get("oriented_box")
+
+                # Green: estimated visible object contour.
+                if polygon is not None:
+                    contour_points = np.rint(polygon).astype(np.int32)
+                    cv2.polylines(
+                        frame,
+                        [contour_points],
+                        isClosed=True,
+                        color=(0, 255, 0),
+                        thickness=2,
+                    )
+
+                # Red: rotated bounding box.
+                if oriented_box is not None:
+                    box_points = np.asarray(
+                        oriented_box,
+                        dtype=np.int32,
+                    )
+
+                    cv2.polylines(
+                        frame,
+                        [box_points],
+                        isClosed=True,
+                        color=(0, 0, 255),
+                        thickness=2,
+                    )
+
+                # Display segmentation-derived object measurements.
+                angle = geometry["orientation_deg"]
+                major_axis = geometry["major_axis_px"]
+                minor_axis = geometry["minor_axis_px"]
+                aspect_ratio = geometry["aspect_ratio"]
+
+                if geometry["orientation_reliable"]:
+                    angle_text = f"{angle:.1f} deg"
+                else:
+                    angle_text = "Uncertain"
+
+                geometry_labels = [
+                    f"Orientation: {angle_text}",
+                    f"Major axis: {major_axis:.1f} px",
+                    f"Minor axis: {minor_axis:.1f} px",
+                    f"Aspect ratio: {aspect_ratio:.2f}",
+                ]
+
+                # Position the labels beside the object's standard bounding box.
+                label_x = min(x2 + 10, frame.shape[1] - 230)
+                label_x = max(5, label_x)
+
+                label_y = max(25, y1 + 20)
+
+                for label_index, label_text in enumerate(geometry_labels):
+                    text_y = label_y + (label_index * 23)
+
+                    if text_y >= frame.shape[0]:
+                        break
+
+                    cv2.putText(
+                        frame,
+                        label_text,
+                        (label_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 255),
+                        2,
+                        cv2.LINE_AA,
+                    )
+
         if results.multi_hand_landmarks:
             num_hands = len(results.multi_hand_landmarks)
         else:
@@ -379,13 +583,21 @@ try:
 
             else:
                 hand_missing_frames[hand_label] += 1
+                association_missing_frames[hand_label] += 1
 
-                # Missing-hand detection is not evidence of release.
-                interaction_event_tracker.mark_unobserved(hand_label)
-
-                last_associated_object_ids[hand_label] = None
+                # A brief missing-hand observation is not a confirmed release.
+                # Keep the previous event history temporarily, but do not
+                # update it while the hand is not visible.
 
                 if hand_missing_frames[hand_label] == HAND_LOSS_RESET_FRAMES:
+                    association_missing_frames[hand_label] = ASSOCIATION_LOSS_RESET_FRAMES
+
+                    # The interruption has lasted too long to preserve
+                    # the previous interaction sequence.
+                    interaction_event_tracker.mark_unobserved(hand_label)
+
+                    last_associated_object_ids[hand_label] = None
+
                     interaction_trackers[hand_label].reset()
 
 
@@ -472,10 +684,6 @@ try:
                     permitted_detected_objects
                 )
 
-                if associated_object is not None:
-
-                    object_name = nearest_object["class_name"]
-
                 # A nearby detection is only a candidate for hand-object association.
                 # Do not treat a distant object as the hand's interaction target.
                 associated_object = None
@@ -484,8 +692,9 @@ try:
                     if is_hand_near_object(hand_center, nearest_object):
                         associated_object = nearest_object
 
-
                 if associated_object is not None:
+                    object_name = associated_object["class_name"]
+
                     associated_object_id = associated_object.get("object_id")
 
                     object_movement = object_movements.get(
@@ -493,6 +702,16 @@ try:
                         0.0
                     )
 
+                    # -----------------------------
+                    # Hand-object proximity
+                    # -----------------------------
+                    hand_near_object = is_hand_near_object(
+                        hand_center,
+                        associated_object
+                    )
+
+                    # Keep your existing fingertip and grasp calculations
+                    # below this line, inside the same if block.
                     # -----------------------------
                     # Hand-object proximity
                     # -----------------------------
@@ -544,9 +763,6 @@ try:
 
 
                 if nearest_object is not None:
-
-                    object_name = nearest_object["class_name"]
-
                     cv2.putText(
                         frame,
                         f"Nearest object: {object_name} ({object_distance:.0f}px)",
@@ -747,6 +963,115 @@ try:
                     is_multidigit_precision,
                 ])
 
+                # -----------------------------------------
+                # Preliminary unified grasp classification
+                # -----------------------------------------
+
+                grasp_candidates = {
+                    "cylindrical": is_cylindrical,
+                    "spherical": is_spherical,
+                    "large_palmar": is_large_palmar,
+                    "whole_hand_power": is_power_grip,
+                    "handle": is_handle_grasp,
+                    "hook": is_hook_grasp,
+                    "pincer": is_pincer,
+                    "tip_pinch": is_tip_pinch,
+                    "tripod": is_tripod,
+                    "lateral_pinch": is_lateral_pinch,
+                    "multidigit_precision": is_multidigit_precision,
+                }
+
+                grasp_confidences = {
+                    "cylindrical": cylindrical_confidence,
+                    "spherical": spherical_confidence,
+                    "large_palmar": large_palmar_confidence,
+                    "whole_hand_power": power_grip_confidence,
+                    "handle": handle_grasp_confidence,
+                    "hook": hook_grasp_confidence,
+                    "pincer": pincer_confidence,
+                    "tip_pinch": tip_pinch_confidence,
+                    "tripod": tripod_confidence,
+                    "lateral_pinch": lateral_pinch_confidence,
+                    "multidigit_precision": multidigit_precision_confidence,
+                }
+
+                detected_grasp_types = [
+                    grasp_name
+                    for grasp_name, is_detected in grasp_candidates.items()
+                    if is_detected
+                ]
+
+                if len(detected_grasp_types) == 1:
+                    detected_grasp_type = detected_grasp_types[0]
+
+                elif len(detected_grasp_types) > 1:
+                    detected_grasp_type = max(
+                        detected_grasp_types,
+                        key=lambda grasp: grasp_confidences[grasp]
+                    )
+
+                else:
+                    detected_grasp_type = "UNKNOWN"
+
+                # Display the preliminary grasp classification for this hand.
+                candidate_text = ", ".join(detected_grasp_types) or "none"
+
+                cv2.putText(
+                    frame,
+                    f"{hand_label} grasp: {detected_grasp_type}",
+                    (20, 180 if hand_label == "Left" else 250),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (255, 255, 255),
+                    2,
+                )
+
+                cv2.putText(
+                    frame,
+                    f"Candidates: {candidate_text[:75]}",
+                    (20, 205 if hand_label == "Left" else 275),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.45,
+                    (255, 255, 255),
+                    1,
+                )
+
+                # -----------------------------------------
+                # Preliminary task-specific grasp assessment
+                # -----------------------------------------
+
+                associated_object_class = (
+                    associated_object.get("class_name")
+                    if associated_object is not None
+                    else None
+                )
+
+                if (
+                    associated_object is None
+                    or not hand_near_object
+                    or associated_object_class not in permitted_objects
+                ):
+                    grasp_appropriateness = "NOT_ASSESSED"
+
+                elif detected_grasp_type in ("UNKNOWN", "AMBIGUOUS"):
+                    grasp_appropriateness = "UNCERTAIN"
+
+                elif detected_grasp_type in expected_grasps:
+                    grasp_appropriateness = "APPROPRIATE"
+
+                else:
+                    grasp_appropriateness = "INAPPROPRIATE"
+
+                cv2.putText(
+                    frame,
+                    f"{hand_label} appropriateness: {grasp_appropriateness}",
+                    (20, 225 if hand_label == "Left" else 295),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (255, 255, 255),
+                    2,
+                )
+
                 candidate_interaction_state = determine_interaction_state(
                     hand_near_object=hand_near_object,
                     fingertips_near_object=fingertip_count,
@@ -757,10 +1082,24 @@ try:
                     candidate_interaction_state
                 )
 
+                # Temporary diagnostic: report changes in the grasp state.
+                if interaction_state == "GRASPING":
+                    print(
+                        f"[GRASP DEBUG] "
+                        f"Hand: {hand_label} | "
+                        f"State: {interaction_state} | "
+                        f"Object ID: "
+                        f"{associated_object.get('object_id') if associated_object else None} | "
+                        f"Grasp detected: {grasp_detected} | "
+                        f"Fingertips near object: {fingertip_count} | "
+                        f"Hand near object: {hand_near_object}"
+                    )
+
                 # Generate temporal events for the associated hand-object pair.
                 interaction_event = None
 
                 if associated_object is not None:
+                    association_missing_frames[hand_label] = 0
 
                     current_object_id = associated_object.get("object_id")
                     previous_object_id = last_associated_object_ids[hand_label]
@@ -788,8 +1127,24 @@ try:
 
                 else:
                     # No valid hand-object association in this frame.
-                    interaction_event_tracker.mark_unobserved(hand_label)
-                    last_associated_object_ids[hand_label] = None
+                    association_missing_frames[hand_label] += 1
+
+                    # Preserve the previous event history briefly.
+                    # Do not update it or infer a release during the gap.
+                    if (
+                        association_missing_frames[hand_label]
+                        >= ASSOCIATION_LOSS_RESET_FRAMES
+                    ):
+                        interaction_event_tracker.mark_unobserved(
+                            hand_label
+                        )
+
+                        last_associated_object_ids[hand_label] = None
+
+                # Remember the latest detected event for the video overlay.
+                # This does not affect event detection or CSV logging.
+                if interaction_event is not None:
+                    display_events[hand_label] = interaction_event
 
                 # Duration is available only when an observed release occurs.
                 grasp_duration_ms = None
@@ -811,6 +1166,77 @@ try:
                                 "last_grasp_duration_ms"
                             )
 
+                                # -----------------------------------------
+                # Live hand-object interaction overlay
+                # -----------------------------------------
+                associated_object_id = (
+                    associated_object.get("object_id")
+                    if associated_object is not None
+                    else None
+                )
+
+                # Retrieve the latest event for the current hand-object pair.
+                latest_event = None
+
+                if associated_object_id is not None:
+                    event_history = interaction_event_tracker.pair_history.get(
+                        (hand_label, associated_object_id)
+                    )
+
+                    if event_history is not None:
+                        latest_event = event_history.get("last_event")
+
+                # -----------------------------------------
+                # Live observed grasp-duration display
+                # -----------------------------------------
+                grasp_timer_text = "-"
+
+                if associated_object_id is not None:
+                    history = interaction_event_tracker.pair_history.get(
+                        (hand_label, associated_object_id)
+                    )
+
+                    if history is not None:
+                        grasp_start_ms = history.get("grasp_start_ms")
+
+                        if (
+                            interaction_state == "GRASPING"
+                            and grasp_start_ms is not None
+                        ):
+                            elapsed_ms = max(
+                                0,
+                                timestamp_ms - grasp_start_ms
+                            )
+
+                            grasp_timer_text = f"{elapsed_ms / 1000:.1f} s"
+
+                # Display the completed duration on the release frame.
+                if grasp_duration_ms is not None:
+                    grasp_timer_text = f"{grasp_duration_ms / 1000:.1f} s (released)"
+
+                interaction_labels = [
+                    f"{hand_label} hand | Object: {associated_object_id}",
+                    f"State: {interaction_state}",
+                    f"Latest event: {display_events[hand_label] or '-'}",
+                    f"Grasp duration: {grasp_timer_text}",
+                ]
+
+                # Put each hand's information in a separate area.
+                panel_x = 10 if hand_label == "Left" else frame.shape[1] - 340
+                panel_y = 115
+
+                for label_index, label_text in enumerate(interaction_labels):
+                    cv2.putText(
+                        frame,
+                        label_text,
+                        (panel_x, panel_y + label_index * 24),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.55,
+                        (255, 255, 255),
+                        2,
+                        cv2.LINE_AA,
+                    )
+                
                 frame_record = create_frame_record(
                     frame_number=frame_number,
                     timestamp_ms=timestamp_ms,
@@ -838,6 +1264,9 @@ try:
                     interaction_event=interaction_event,
 
                     grasp_duration_ms=grasp_duration_ms,
+                    detected_grasp_type=detected_grasp_type,
+                    detected_grasp_types=detected_grasp_types,
+                    grasp_appropriateness=grasp_appropriateness,
                 )
 
                 log_frame_record(
@@ -1123,6 +1552,10 @@ finally:
     interaction_csv_file.close()
     hands.close()
     cv2.destroyAllWindows()
+    pose_csv_file.close()
+    pose_detector.close()
+
+print(f"Pose landmark data saved to: {pose_output_path}")
 
 
 print("Recording stopped.")

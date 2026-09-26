@@ -27,8 +27,11 @@ def create_interaction_logger(output_path):
         "hand_center_y",
 
         "grasp_detected",
+        "detected_grasp_type",
+        "detected_grasp_types",
+        "grasp_appropriateness",
 
-       "interaction_state",
+        "interaction_state",
         "interaction_event",
         "grasp_duration_ms",
         "object_outcome",
@@ -96,6 +99,11 @@ def log_frame_record(
         "hand_center_y": hand_center_y,
 
         "grasp_detected": hand["grasp_detected"],
+        "detected_grasp_type": hand.get("detected_grasp_type"),
+        "detected_grasp_types": ", ".join(
+            hand.get("detected_grasp_types") or []
+        ),
+        "grasp_appropriateness": hand.get("grasp_appropriateness"),
 
         "interaction_state": interaction["state"],
         "interaction_event": interaction.get("event"),

@@ -18,6 +18,9 @@ def create_frame_record(
     fingertip_count=0,
     interaction_event=None,
     grasp_duration_ms=None,
+    detected_grasp_type=None,
+    detected_grasp_types=None,
+    grasp_appropriateness=None,
 ):
 
     record = {
@@ -34,6 +37,9 @@ def create_frame_record(
             "hand_confidence": hand_confidence,
             "hand_center": hand_center,
             "grasp_detected": grasp_detected,
+            "detected_grasp_type": detected_grasp_type,
+            "detected_grasp_types": detected_grasp_types,
+            "grasp_appropriateness": grasp_appropriateness,
         },
 
         "interaction": {

@@ -116,6 +116,8 @@ def attach_object_geometry(
                     "minor_axis_px": geometry["minor_axis_px"],
                     "aspect_ratio": geometry["aspect_ratio"],
                     "association_iou": association["association_iou"],
+                    "polygon": segmented_object["polygon"],
+                    "oriented_box": geometry["oriented_box"],
                 }
 
                 break
