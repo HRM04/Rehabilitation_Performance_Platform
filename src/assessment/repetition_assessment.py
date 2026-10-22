@@ -3,6 +3,7 @@ def create_repetition_assessment(
     movement_metrics=None,
     functional_performance=None,
     grasp_assessment=None,
+    trajectory_metrics=None,
 ):
     """
     Combine all available assessment information for one
@@ -30,6 +31,10 @@ def create_repetition_assessment(
                 "end_timestamp_ms"
             ),
             "duration_ms": repetition.get("duration_ms"),
+
+            "ended_with_recording": repetition.get(
+                "ended_with_recording", False
+            ),
         },
 
         "object": {
@@ -43,6 +48,8 @@ def create_repetition_assessment(
         "movement_quality": movement_metrics,
 
         "grasp_assessment": grasp_assessment,
+
+        "trajectory": trajectory_metrics,
 
         "compensation": None,
     }

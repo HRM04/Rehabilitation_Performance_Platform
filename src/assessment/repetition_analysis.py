@@ -5,6 +5,7 @@ def create_repetition_record(
     start_timestamp_ms,
     end_timestamp_ms,
     total_object_movement,
+    object_id=None,
 ):
     """Create one detected repetition segment."""
 
@@ -16,6 +17,7 @@ def create_repetition_record(
         "end_timestamp_ms": end_timestamp_ms,
         "duration_ms": end_timestamp_ms - start_timestamp_ms,
         "total_object_movement": total_object_movement,
+        "object_id": object_id,
     }
 
 
@@ -35,8 +37,9 @@ def segment_repetitions(
         GRASPING for several consecutive observations.
 
     Continue:
-        The interaction remains active. Short observation losses
-        are tolerated.
+        The interaction remains in GRASPING, HOLDING,
+        MANIPULATION, or TRANSPORT.
+        Short observation losses are tolerated.
 
     End:
         Interaction is absent for several consecutive observations.
@@ -62,6 +65,8 @@ def segment_repetitions(
 
     repetition_number = 1
 
+    active_object_id = None
+
     for row in rows:
 
         frame_number = int(row["frame_number"])
@@ -83,22 +88,56 @@ def segment_repetitions(
 
         # GRASPING is our strongest current evidence that the
         # hand is actively interacting with the object.
+        active_states = {
+            "GRASPING",
+            "HOLDING",
+            "MANIPULATION",
+            "TRANSPORT",
+        }
+
         active_interaction = (
             valid_object
-            and interaction_state == "GRASPING"
+            and interaction_state in active_states
         )
+
+
+        if in_repetition and active_object_id is not None:
+            active_interaction = (
+                active_interaction
+                and row.get("object_id") == active_object_id
+            )
 
         # -------------------------------------------------
         # Waiting for a repetition to begin
         # -------------------------------------------------
+                
+        
         if not in_repetition:
 
-            if active_interaction:
+            if (
+                valid_object
+                and interaction_state == "GRASPING"
+            ):
+
+                current_object_id = row.get("object_id")
+
+                if (
+                    candidate_start_count > 0
+                    and current_object_id != active_object_id
+                ):
+                    candidate_start_count = 0
+                    total_object_movement = 0.0
+
                 candidate_start_count += 1
 
                 if candidate_start_count == 1:
                     candidate_start_frame = frame_number
                     candidate_start_timestamp_ms = timestamp_ms
+                    total_object_movement = 0.0
+                    active_object_id = row.get("object_id")
+
+                # Include movement from every confirmation frame.
+                total_object_movement += object_movement
 
                 if candidate_start_count >= start_confirmation_frames:
 
@@ -110,14 +149,15 @@ def segment_repetitions(
                     last_active_frame = frame_number
                     last_active_timestamp_ms = timestamp_ms
 
-                    total_object_movement = object_movement
-
                     missing_count = 0
 
             else:
                 candidate_start_count = 0
+                total_object_movement = 0.0
 
             continue
+
+
 
         # -------------------------------------------------
         # Repetition currently active
@@ -160,6 +200,7 @@ def segment_repetitions(
                     start_timestamp_ms=start_timestamp_ms,
                     end_timestamp_ms=last_active_timestamp_ms,
                     total_object_movement=total_object_movement,
+                    object_id=active_object_id,
                 )
             )
 
@@ -178,6 +219,7 @@ def segment_repetitions(
         last_active_timestamp_ms = None
 
         total_object_movement = 0.0
+        active_object_id = None
 
     # -------------------------------------------------
     # Recording ended during an active repetition

@@ -1,4 +1,5 @@
 import math
+from src.object_detection.duplicate_filter import calculate_iou
 
 from src.object_detection.yolo_detector import model
 
@@ -40,6 +41,7 @@ def track_objects(frame, allowed_classes=None):
         conf=0.15,
         classes=class_ids,
         tracker="bytetrack.yaml",
+        device="mps",
         verbose=False
     )
 
@@ -228,13 +230,52 @@ class ObjectIdentityTracker:
                 unmatched_previous_ids.remove(object_id)
 
             elif len(spatial_candidates) > 1:
-                # Too many plausible matches
-                object_id = self.next_object_id
-                self.next_object_id += 1
+                # Resolve ambiguity only with strong geometric evidence.
+                strong_matches = []
 
-                detected_object["object_id"] = object_id
-                detected_object["identity_status"] = "AMBIGUOUS_NEW"
-                detected_object["identity_confidence"] = "UNCERTAIN"
+                for distance, candidate_id in spatial_candidates:
+                    previous = self.active_objects[candidate_id]
+
+                    overlap = calculate_iou(
+                        detected_object["bounding_box"],
+                        previous["bounding_box"]
+                    )
+
+                    missing_frames = (
+                        self.frame_number
+                        - previous["last_seen_frame"]
+                        - 1
+                    )
+
+                    if overlap >= 0.85 and missing_frames <= 3:
+                        strong_matches.append(
+                            (overlap, -missing_frames, candidate_id)
+                        )
+
+                strong_matches.sort(reverse=True)
+
+                # Require a clear overlap advantage over the runner-up.
+                if (
+                    strong_matches
+                    and (
+                        len(strong_matches) == 1
+                        or strong_matches[0][0] - strong_matches[1][0] >= 0.05
+                    )
+                ):
+                    object_id = strong_matches[0][2]
+
+                    detected_object["object_id"] = object_id
+                    detected_object["identity_status"] = "REASSOCIATED"
+                    detected_object["identity_confidence"] = "PROVISIONAL"
+
+                    unmatched_previous_ids.remove(object_id)
+                else:
+                    object_id = self.next_object_id
+                    self.next_object_id += 1
+
+                    detected_object["object_id"] = object_id
+                    detected_object["identity_status"] = "AMBIGUOUS_NEW"
+                    detected_object["identity_confidence"] = "UNCERTAIN"
 
                 assigned_current_indices.add(index)
 

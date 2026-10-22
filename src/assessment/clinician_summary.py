@@ -40,6 +40,11 @@ def create_clinician_summary(
             ),
         },
 
+        "trajectory_summary": {
+            "available": False,
+            "results": [],
+        },
+
         "grasp_summary": {
             "available": False,
             "results": [],
@@ -57,6 +62,59 @@ def create_clinician_summary(
 
         "feedback": feedback or [],
     }
+
+
+    # -----------------------------------------
+    # Trajectory results
+    # -----------------------------------------
+
+    for rep in valid_repetitions:
+
+        trajectory = rep.get("trajectory")
+
+        if trajectory is None:
+            continue
+
+        summary["trajectory_summary"][
+            "available"
+        ] = True
+
+        summary["trajectory_summary"][
+            "results"
+        ].append({
+            "repetition_number":
+                rep.get("repetition_number"),
+
+            "path_length_px":
+                trajectory.get(
+                    "path_length_px"
+                ),
+
+            "direct_displacement_px":
+                trajectory.get(
+                    "direct_displacement_px"
+                ),
+
+            "movement_efficiency":
+                trajectory.get(
+                    "movement_efficiency"
+                ),
+
+            "mean_trajectory_deviation_px":
+                trajectory.get(
+                    "mean_trajectory_deviation_px"
+                ),
+
+            "final_target_error_px":
+                trajectory.get(
+                    "final_target_error_px"
+                ),
+
+            "target_reached":
+                trajectory.get(
+                    "target_reached"
+                ),
+        })
 
     # -----------------------------------------
     # Grasp results
