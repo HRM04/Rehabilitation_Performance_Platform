@@ -16,6 +16,7 @@ def process_repetition(
     pose_frames,
     trajectory_assessment=None,
     grasp_assessment=None,
+    reference_posture=None,
 ):
     """
     Process one completed rehabilitation repetition.
@@ -66,6 +67,7 @@ def process_repetition(
             pose_frames=pose_frames,
             start_timestamp_ms=start_timestamp_ms,
             end_timestamp_ms=end_timestamp_ms,
+            reference_posture=reference_posture,
         )
 
     # -------------------------------------------------

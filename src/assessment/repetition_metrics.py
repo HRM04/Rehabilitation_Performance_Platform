@@ -8,6 +8,17 @@ from src.assessment.movement_quality import (
 )
 
 
+from src.assessment.posture_metrics import (
+    calculate_shoulder_elevation,
+    calculate_trunk_posture,
+)
+
+
+from src.assessment.temporal_posture import (
+    analyze_posture_deviations,
+)
+
+
 JOINT_NAMES = [
     "left_elbow",
     "right_elbow",
@@ -20,6 +31,7 @@ def calculate_repetition_metrics(
     pose_frames,
     start_timestamp_ms,
     end_timestamp_ms,
+    reference_posture=None,
 ):
     """
     Calculate movement metrics for one repetition window.
@@ -131,7 +143,23 @@ def calculate_repetition_metrics(
     # -----------------------------------------
     # Trunk displacement
     # -----------------------------------------
-    baseline_center = None
+    # Use the validated pre-task calibration when supplied.
+    # Otherwise, use the first valid frame of this repetition.
+    reference_landmarks = (
+        reference_posture.get("landmarks")
+        if isinstance(reference_posture, dict)
+        else None
+    )
+    baseline_center = (
+        calculate_trunk_center(reference_landmarks)
+        if reference_landmarks is not None
+        else None
+    )
+    trunk_baseline_type = (
+        "calibrated_reference"
+        if baseline_center is not None
+        else "first_valid_frame"
+    )
     trunk_displacements = []
 
     for frame in repetition_frames:
@@ -154,13 +182,200 @@ def calculate_repetition_metrics(
         if displacement is not None:
             trunk_displacements.append(displacement)
 
+    # Temporal trunk movement descriptors.
+    # These quantify movement, not confirmed compensation.
+    import statistics
+
+    peak_index = (
+        max(
+            range(len(trunk_displacements)),
+            key=trunk_displacements.__getitem__,
+        )
+        if trunk_displacements
+        else None
+    )
+
     result["trunk"] = {
+        "baseline_type": trunk_baseline_type,
+        "measurement_type": "relative_2d_trunk_center_displacement",
         "maximum_displacement_norm": (
             max(trunk_displacements)
             if trunk_displacements
             else None
         ),
         "valid_frames": len(trunk_displacements),
+        "mean_displacement_norm": (
+            statistics.mean(trunk_displacements)
+            if trunk_displacements
+            else None
+        ),
+        "displacement_std_norm": (
+            statistics.pstdev(trunk_displacements)
+            if trunk_displacements
+            else None
+        ),
+        "peak_position_fraction": (
+            peak_index / (len(trunk_displacements) - 1)
+            if peak_index is not None
+            and len(trunk_displacements) > 1
+            else None
+        ),
+    }
+
+    # -----------------------------------------
+    # Shoulder elevation relative to baseline
+    # -----------------------------------------
+    baseline_posture = (
+        reference_posture.get("landmarks")
+        if reference_posture is not None
+        else None
+    )
+    shoulder_values = {
+        "left": [],
+        "right": [],
+    }
+    shoulder_samples = {
+        "left": [],
+        "right": [],
+    }
+
+    for frame in repetition_frames:
+        landmarks = frame.get("landmarks")
+
+        if baseline_posture is None:
+            initial = calculate_shoulder_elevation(
+                landmarks, landmarks
+            )
+            if initial is not None:
+                baseline_posture = landmarks
+
+        if baseline_posture is None:
+            continue
+
+        elevation = calculate_shoulder_elevation(
+            baseline_posture, landmarks
+        )
+
+        if elevation is None:
+            continue
+
+        for side in ("left", "right"):
+            value = elevation[
+                f"{side}_shoulder_elevation_norm"
+            ]
+
+            shoulder_values[side].append(value)
+            shoulder_samples[side].append({
+                "timestamp_ms": frame["timestamp_ms"],
+                "value": max(0.0, value),
+            })
+
+    result["shoulder_elevation"] = {
+        "baseline_type": (
+            "calibrated_reference"
+            if reference_posture is not None
+            else "first_valid_frame"
+        ),
+        "measurement_type": "relative_shoulder_hip_geometry",
+        "valid_frames": len(shoulder_values["left"]),
+    }
+
+    for side in ("left", "right"):
+        values = shoulder_values[side]
+        upward_values = [max(0.0, value) for value in values]
+
+        result["shoulder_elevation"][side] = {
+            "maximum_upward_change_norm": (
+                max(upward_values) if upward_values else None
+            ),
+            "mean_upward_change_norm": (
+                sum(upward_values) / len(upward_values)
+                if upward_values else None
+            ),
+            "temporal_analysis": analyze_posture_deviations(
+                shoulder_samples[side],
+                threshold=0.03,
+            ),
+        }
+
+    # -----------------------------------------
+    # Trunk posture measurements
+    # -----------------------------------------
+    baseline_posture = (
+        reference_posture.get("landmarks")
+        if reference_posture is not None
+        else None
+    )
+    lateral_shifts = []
+    inclination_changes = []
+    inclination_samples = []
+
+    for frame in repetition_frames:
+        landmarks = frame.get("landmarks")
+
+        if baseline_posture is None:
+            initial = calculate_trunk_posture(
+                landmarks, landmarks
+            )
+            if initial is not None:
+                baseline_posture = landmarks
+
+        if baseline_posture is None:
+            continue
+
+        posture = calculate_trunk_posture(
+            baseline_posture, landmarks
+        )
+
+        if posture is None:
+            continue
+
+        lateral_shifts.append(
+            posture["lateral_shift_norm"]
+        )
+        inclination_changes.append(
+            posture["inclination_change_deg"]
+        )
+
+        inclination_samples.append({
+            "timestamp_ms": frame["timestamp_ms"],
+            "value": posture["inclination_change_deg"],
+        })
+
+    result["trunk_posture"] = {
+        "measurement_type": "relative_2d_trunk_posture",
+        "baseline_type": (
+            "calibrated_reference"
+            if reference_posture is not None
+            else "first_valid_frame"
+        ),
+        "valid_frames": len(lateral_shifts),
+
+        "maximum_lateral_shift_norm": (
+            max(map(abs, lateral_shifts))
+            if lateral_shifts else None
+        ),
+
+        "maximum_inclination_change_deg": (
+            max(map(abs, inclination_changes))
+            if inclination_changes else None
+        ),
+
+        "mean_inclination_change_deg": (
+            sum(map(abs, inclination_changes))
+            / len(inclination_changes)
+            if inclination_changes else None
+        ),
+
+        "signed_lateral_shifts_norm": lateral_shifts,
+        "signed_inclination_changes_deg": inclination_changes,
+
+        "inclination_temporal_analysis": (
+            analyze_posture_deviations(
+                inclination_samples,
+                threshold=10.0,
+            )
+        ),
     }
 
     return result

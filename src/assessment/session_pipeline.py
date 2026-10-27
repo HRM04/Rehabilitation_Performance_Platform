@@ -76,6 +76,7 @@ def process_session(
     feedback=None,
     patient_id=None,
     glove_record=None,
+    reference_posture=None,
 ):
     """
     Run the complete assessment pipeline for one
@@ -101,6 +102,7 @@ def process_session(
         trajectory_assessment=trajectory_assessment,
         grasp_assessments=grasp_assessments,
         baseline=baseline,
+        reference_posture=reference_posture,
     )
 
     # -------------------------------------------------

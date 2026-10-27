@@ -8,6 +8,7 @@ import plotly.express as px
 import streamlit as st
 
 from src.assessment.combined_assessment_summary import load_combined_session
+from src.assessment.calibration_display import calibration_view
 from src.dashboard.trajectory_visualization import (
     render_trajectory_visualization,
 )
@@ -73,6 +74,60 @@ st.write(
     f"**Object:** {task.get('object_id', 'Unknown')}  |  "
     f"**Trajectory:** {task.get('trajectory', 'Unknown')}"
 )
+
+st.divider()
+
+# -------------------------------------------------------
+# Posture calibration — showcase
+# -------------------------------------------------------
+
+st.subheader("Posture Calibration")
+
+calibration = (
+    session.get("posture_calibration")
+    or session.get("calibration")
+    or {}
+)
+
+if not isinstance(calibration, dict):
+    calibration = {}
+
+view = calibration_view(calibration)
+
+cal1, cal2, cal3, cal4 = st.columns(4)
+
+cal1.metric("Calibration Status", view["status"])
+cal2.metric("Posture Stability", view["stability_status"])
+cal3.metric(
+    "Reference Posture",
+    "Recorded" if view["reference_available"] else "Not recorded",
+)
+cal4.metric("Reference Type", view["reference_type"])
+
+if view["reference_available"]:
+    st.success("Validated posture reference used for this assessment.")
+else:
+    st.info(
+        "No validated calibration reference was used. Posture-change "
+        "metrics, when available, use the first valid task frame as "
+        "their baseline; they are not calibrated posture measurements."
+    )
+
+if view["status"] in (
+    "UNSTABLE", "RETRY_REQUIRED", "INSUFFICIENT_DATA"
+):
+    st.warning(
+        "Calibration was unsuccessful; a new calibration is recommended."
+    )
+
+if view["reason"]:
+    st.caption(f"Calibration note: {view['reason']}")
+
+with st.expander("Calibration details"):
+    if calibration:
+        st.json(calibration)
+    else:
+        st.write("No calibration data saved for this session.")
 
 st.divider()
 

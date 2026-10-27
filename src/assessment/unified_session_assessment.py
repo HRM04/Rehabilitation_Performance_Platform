@@ -5,6 +5,8 @@ Combines existing trajectory and pose assessment outputs.
 Does not alter original recordings or infer clinical diagnoses.
 """
 
+import math
+
 from src.assessment.trajectory_session_analysis import (
     analyse_trajectory_session,
 )
@@ -16,9 +18,17 @@ from src.assessment.joint_quality_control import (
 )
 
 
-def build_unified_session_assessment(session, pose_frames):
+def build_unified_session_assessment(
+    session,
+    pose_frames,
+    reference_posture=None,
+):
     trajectory = analyse_trajectory_session(session)
-    pose_results = assess_pose_for_attempts(session, pose_frames)
+    pose_results = assess_pose_for_attempts(
+        session,
+        pose_frames,
+        reference_posture=reference_posture,
+    )
 
     # Preserve attempt order rather than relying on attempt numbers
     # being unique or always present.
@@ -64,14 +74,46 @@ def build_unified_session_assessment(session, pose_frames):
         start = original_attempt.get("start_timestamp_ms")
         end = original_attempt.get("end_timestamp_ms")
 
-        matching_frames = (
-            [
-                frame for frame in pose_frames
-                if start <= frame["timestamp_ms"] <= end
-            ]
-            if start is not None and end is not None and end >= start
-            else []
-        )
+        # Validate timestamps before comparing them with pose frames.
+        # Invalid windows have no eligible frames.
+        try:
+            start = float(start)
+            end = float(end)
+            valid_window = (
+                math.isfinite(start)
+                and math.isfinite(end)
+                and start >= 0
+                and end >= start
+            )
+        except (TypeError, ValueError, OverflowError):
+            valid_window = False
+
+        try:
+            start = float(start)
+            end = float(end)
+            valid_window = (
+                math.isfinite(start)
+                and math.isfinite(end)
+                and start >= 0
+                and end >= start
+            )
+        except (TypeError, ValueError, OverflowError):
+            valid_window = False
+
+        matching_frames = []
+
+        if valid_window:
+            for frame in pose_frames:
+                try:
+                    timestamp = float(frame["timestamp_ms"])
+                except (TypeError, ValueError, KeyError, OverflowError):
+                    continue
+
+                if (
+                    math.isfinite(timestamp)
+                    and start <= timestamp <= end
+                ):
+                    matching_frames.append(frame)
 
         joint_quality = {}
 

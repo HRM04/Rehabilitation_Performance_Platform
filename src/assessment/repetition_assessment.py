@@ -71,6 +71,32 @@ def create_repetition_assessment(
                     trunk_metrics.get(
                         "valid_frames"
                     ),
+
+                "mean_trunk_displacement_norm":
+                    trunk_metrics.get(
+                        "mean_displacement_norm"
+                    ),
+
+                "trunk_displacement_std_norm":
+                    trunk_metrics.get(
+                        "displacement_std_norm"
+                    ),
+
+                "peak_trunk_displacement_fraction":
+                    trunk_metrics.get(
+                        "peak_position_fraction"
+                    ),
+
+                "measurement_type": "trunk_movement",
+                "compensation_confirmed": False,
+
+                "shoulder_elevation": (
+                    movement_metrics.get("shoulder_elevation")
+                ),
+
+                "trunk_posture": (
+                    movement_metrics.get("trunk_posture")
+                ),
             }
 
     return assessment

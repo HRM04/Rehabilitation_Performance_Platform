@@ -1,6 +1,7 @@
 """Export an existing session for the clinician dashboard."""
 
 import json
+from src.assessment.posture_calibration_store import load_calibration
 import sys
 from pathlib import Path
 
@@ -44,9 +45,59 @@ def export_session(session_id):
 
     pose_frames = load_pose_frames(pose_path)
 
+    calibration = load_calibration(session_id)
+
+    reference_posture = None
+    calibration_status = "UNAVAILABLE"
+
+    if calibration is not None:
+        calibration_status = calibration.get(
+            "status", "UNAVAILABLE"
+        )
+
+        if calibration_status == "READY":
+            reference_posture = calibration.get(
+                "reference_posture"
+            )
+
+            if not isinstance(reference_posture, dict):
+                raise ValueError(
+                    "READY calibration has no valid reference"
+                )
+
     assessment = build_unified_session_assessment(
-        session, pose_frames
+        session,
+        pose_frames,
+        reference_posture=reference_posture,
     )
+
+    assessment["posture_calibration"] = {
+        "status": calibration_status,
+        "reference_available": reference_posture is not None,
+        "reference_type": (
+            reference_posture.get("reference_type")
+            if reference_posture is not None
+            else None
+        ),
+        "reason": (
+            calibration.get("calibration_details", {}).get("reason")
+            if calibration is not None
+            else "No calibration record found"
+        ),
+        "valid_frames": (
+            calibration.get("calibration_details", {}).get("valid_frames")
+            if calibration is not None else None
+        ),
+        "stability": (
+            calibration.get("calibration_details", {}).get("stability")
+            if calibration is not None else None
+        ),
+        "assessment_baseline": (
+            "calibrated_reference" if reference_posture is not None
+            else "first_valid_task_frame"
+        ),
+    }
+
 
     required = {
         "session_id", "task", "session_summary",

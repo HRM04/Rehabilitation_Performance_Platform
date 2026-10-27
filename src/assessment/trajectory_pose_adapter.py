@@ -44,8 +44,21 @@ def load_pose_frames(csv_path):
         reader = csv.DictReader(file)
 
         for row in reader:
-            frame_number = int(row["frame_number"])
-            timestamp_ms = int(row["timestamp_ms"])
+            try:
+                frame_number = int(row["frame_number"])
+                timestamp_ms = int(row["timestamp_ms"])
+            except (ValueError, TypeError, KeyError):
+                continue
+
+            if frame_number < 0 or timestamp_ms < 0:
+                continue
+
+            if (
+                frame_number in frames
+                and frames[frame_number]["timestamp_ms"] != timestamp_ms
+            ):
+                # Conflicting timestamps cannot represent one frame.
+                continue
 
             if frame_number not in frames:
                 frames[frame_number] = {
@@ -89,8 +102,40 @@ def load_pose_frames(csv_path):
     )
 
 
-def assess_pose_for_attempts(session, pose_frames):
+def assess_pose_for_attempts(session, pose_frames, reference_posture=None):
     """Align pose measurements with trajectory-game attempts."""
+
+    # Exclude malformed frames without changing the source data.
+    valid_frames = []
+
+    for frame in pose_frames:
+        if not isinstance(frame, dict):
+            continue
+
+        try:
+            timestamp = float(frame["timestamp_ms"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+
+        if not math.isfinite(timestamp) or timestamp < 0:
+            continue
+
+        valid_frames.append({
+            **frame,
+            "timestamp_ms": timestamp,
+            "angles": (
+                frame.get("angles")
+                if isinstance(frame.get("angles"), dict)
+                else {}
+            ),
+            "landmarks": (
+                frame.get("landmarks")
+                if isinstance(frame.get("landmarks"), dict)
+                else {}
+            ),
+        })
+
+    valid_frames.sort(key=lambda frame: frame["timestamp_ms"])
 
     results = []
 
@@ -98,7 +143,19 @@ def assess_pose_for_attempts(session, pose_frames):
         start = attempt.get("start_timestamp_ms")
         end = attempt.get("end_timestamp_ms")
 
-        if start is None or end is None or end < start:
+        try:
+            start = float(start)
+            end = float(end)
+            valid_window = (
+                math.isfinite(start)
+                and math.isfinite(end)
+                and start >= 0
+                and end >= start
+            )
+        except (TypeError, ValueError, OverflowError):
+            valid_window = False
+
+        if not valid_window:
             results.append({
                 "attempt_number": attempt.get("attempt_number"),
                 "movement_quality": None,
@@ -110,14 +167,15 @@ def assess_pose_for_attempts(session, pose_frames):
             continue
 
         matching = [
-            frame for frame in pose_frames
+            frame for frame in valid_frames
             if start <= frame["timestamp_ms"] <= end
         ]
 
         movement = calculate_repetition_metrics(
-            pose_frames,
+            valid_frames,
             start,
             end,
+            reference_posture=reference_posture,
         )
 
         angle_coverage = {}
