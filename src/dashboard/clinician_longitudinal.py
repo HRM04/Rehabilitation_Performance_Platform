@@ -14,6 +14,7 @@ import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data/trajectory_results"
+UNIFIED_DIR = PROJECT_ROOT / "data/processed/unified_sessions"
 
 METRICS = {
     "movement_efficiency": "Movement Efficiency",
@@ -74,6 +75,14 @@ def summarize_session(session):
 
     row = {
         "Session ID": session.get("session_id"),
+        "Unified Assessment": (
+            "Export available"
+            if (
+                UNIFIED_DIR
+                / f"{session.get('session_id')}_unified_assessment_v02.json"
+            ).is_file()
+            else "Raw trajectory only"
+        ),
         "Date": session_datetime(session.get("session_id")),
         "Patient": session.get("patient_id"),
         "Object": session.get("object_id"),

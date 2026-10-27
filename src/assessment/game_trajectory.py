@@ -32,7 +32,7 @@ class GameTrajectory(TrajectoryAssessment):
         self.grace_seconds = grace_seconds
         self.last_interaction_time = None
         self.progress_fraction = 0.0
-        self.start_hold_seconds = 0.3
+        self.start_hold_seconds = 1.5
         self.start_tolerance_px = 100
         self.start_hold_since = None
         self.start_candidate_id = None
@@ -42,10 +42,12 @@ class GameTrajectory(TrajectoryAssessment):
         self.last_detection_time = None
         self.recovery_distance_px = 120
         self.completion_progress_threshold = 0.95
-        self.target_hold_seconds = 0.5
+        self.target_hold_seconds = 1.5
         self.target_hold_since = None
         self.go_display_until = 0.0
         self.retry_ready_at = 0.0
+        self.completion_display_until = 0.0
+        self.tracking_restored_until = 0.0
 
     def reset(self):
         super().reset()
@@ -53,6 +55,8 @@ class GameTrajectory(TrajectoryAssessment):
         self.progress_fraction = 0.0
         self.clear_start_confirmation()
         self.outcome = "WAITING"
+        self.completion_display_until = 0.0
+        self.tracking_restored_until = 0.0
         self.last_seen_position = None
         self.last_detection_time = None
         self.target_hold_since = None
@@ -62,7 +66,8 @@ class GameTrajectory(TrajectoryAssessment):
         self.last_interaction_time = time.monotonic()
         self.progress_fraction = 0.0
         self.outcome = "ACTIVE"
-        self.go_display_until = time.monotonic() + 1.0
+        self.tracking_restored_until = 0.0
+        self.go_display_until = time.monotonic() + 1.2
         self.last_seen_position = tuple(self.start_point)
         self.last_detection_time = None
         self.target_hold_since = None
@@ -83,6 +88,8 @@ class GameTrajectory(TrajectoryAssessment):
         super().end_attempt()
         self.outcome = outcome
         self.attempt_completed = outcome == "COMPLETED"
+        if outcome == "COMPLETED":
+            self.completion_display_until = time.monotonic() + 2.0
         self.last_interaction_time = None
 
         if outcome == "INTERRUPTED":
@@ -102,39 +109,37 @@ class GameTrajectory(TrajectoryAssessment):
         if object_visible is None:
             object_visible = interaction_active
 
-        if object_visible:
-            self.last_detection_time = now
-            self.outcome = "ACTIVE"
+        if not object_visible:
+            if self.last_detection_time is None:
+                self.last_detection_time = now
 
-            qualified = (
-                self.target_reached()
-                and self.progress_fraction
-                    >= self.completion_progress_threshold
-            )
-
-            if qualified:
-                if self.target_hold_since is None:
-                    self.target_hold_since = now
-
-                if (
-                    now - self.target_hold_since
-                    >= self.target_hold_seconds
-                ):
-                    self.end_attempt("COMPLETED")
-                    return True
-            else:
-                self.target_hold_since = None
-
+            # Preserve attempt and measured path.
+            # Missing observations do not count as target hold.
+            self.outcome = "TRACKING LOST"
+            self.target_hold_since = None
             return False
 
-        if self.last_detection_time is None:
-            self.last_detection_time = now
+        self.last_detection_time = now
+        if self.outcome == "TRACKING LOST":
+            self.tracking_restored_until = now + 1.0
+        self.outcome = "ACTIVE"
 
-        self.outcome = "TRACKING LOST"
-        self.target_hold_since = None
+        qualified = (
+            self.target_reached()
+            and self.progress_fraction
+            >= self.completion_progress_threshold
+        )
 
-        if now - self.last_detection_time >= self.grace_seconds:
-            self.end_attempt("INTERRUPTED")
+        if not qualified:
+            self.target_hold_since = None
+            return False
+
+        if self.target_hold_since is None:
+            self.target_hold_since = now
+            return False
+
+        if now - self.target_hold_since >= self.target_hold_seconds:
+            self.end_attempt("COMPLETED")
             return True
 
         return False
@@ -187,78 +192,234 @@ class GameTrajectory(TrajectoryAssessment):
         self.start_detection_count = 0
 
     def consider_start(self, object_id, object_center):
-        """
-        Start after two consecutive detections inside
-        the visible yellow starting region.
-
-        Grasp recognition and stable object IDs are
-        not prerequisites for starting.
-        """
         if self.attempt_active or object_center is None:
             self.clear_start_confirmation()
             return False
 
-        distance = math.dist(
-            object_center, self.start_point
-        )
-
-        if distance > self.start_tolerance_px:
+        if math.dist(object_center, self.start_point) > self.start_tolerance_px:
             self.clear_start_confirmation()
             return False
 
-        # Count consecutive qualifying detections,
-        # regardless of temporary changes in object ID.
-        count = getattr(self, "start_detection_count", 0) + 1
-        self.start_detection_count = count
+        now = time.monotonic()
+
+        if self.start_hold_since is None:
+            self.start_hold_since = now
 
         self.start_candidate_id = object_id
+        elapsed = max(0.0, now - self.start_hold_since)
         self.start_confirmation_progress = min(
-            1.0, count / 2
+            1.0,
+            elapsed / max(self.start_hold_seconds, 0.001)
         )
 
-        if count >= 2:
+        if elapsed >= self.start_hold_seconds:
             self.start_attempt(object_id=object_id)
             return True
 
         return False
+
+
 
     def _draw_start_loading(self, frame):
         if self.attempt_active:
             return
 
         progress = self.start_confirmation_progress
+
         if progress <= 0:
             return
 
-        x, y = map(int, self.start_point)
+        self._draw_silhouette_fill(
+            frame, self.start_point, 2.5, progress
+        )
 
-        width, height = 75, 140
-        left, right = x - width // 2, x + width // 2
-        top, bottom = y - height // 2, y + height // 2
+    def _draw_silhouette_fill(self, frame, center, scale, progress):
+        """Transparent green interior, filled bottom-to-top."""
+        outline = np.zeros_like(frame)
 
-        corners = [
-            (left, top), (right, top),
-            (right, bottom), (left, bottom),
-            (left, top),
-        ]
+        self._draw_object_icon(
+            outline, center, (255, 255, 255), scale=scale
+        )
 
-        remaining = progress * 2 * (width + height)
+        gray = cv2.cvtColor(outline, cv2.COLOR_BGR2GRAY)
 
-        for a, b in zip(corners[:-1], corners[1:]):
-            length = math.dist(a, b)
-            if remaining <= 0:
-                break
+        contours, _ = cv2.findContours(
+            gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
 
-            fraction = min(1.0, remaining / length)
-            endpoint = (
-                int(a[0] + (b[0] - a[0]) * fraction),
-                int(a[1] + (b[1] - a[1]) * fraction),
+        if not contours:
+            return
+
+        mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+
+        cv2.drawContours(
+            mask, contours, -1, 255, thickness=-1
+        )
+
+        ys, xs = np.where(mask > 0)
+
+        if len(ys) == 0:
+            return
+
+        top = int(ys.min())
+        bottom = int(ys.max())
+
+        progress = max(0.0, min(1.0, float(progress)))
+
+        boundary = bottom - int(
+            progress * (bottom - top + 1)
+        )
+
+        filled = (
+            (mask > 0)
+            & (np.arange(frame.shape[0])[:, None] >= boundary)
+        )
+
+        alpha = 0.20
+        green = np.array([0, 255, 0], dtype=np.float32)
+
+        frame[filled] = (
+            frame[filled].astype(np.float32) * (1.0 - alpha)
+            + green * alpha
+        ).astype(np.uint8)
+
+        cv2.drawContours(
+            frame, contours, -1, (0, 255, 0), 2
+        )
+
+    def _draw_silhouette_fill(self, frame, center, scale, progress):
+        """Transparent green interior, filled bottom-to-top."""
+        outline = np.zeros_like(frame)
+
+        self._draw_object_icon(
+            outline, center, (255, 255, 255), scale=scale
+        )
+
+        gray = cv2.cvtColor(outline, cv2.COLOR_BGR2GRAY)
+
+        contours, _ = cv2.findContours(
+            gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+
+        if not contours:
+            return
+
+        mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+
+        cv2.drawContours(
+            mask, contours, -1, 255, thickness=-1
+        )
+
+        ys, xs = np.where(mask > 0)
+
+        if len(ys) == 0:
+            return
+
+        top = int(ys.min())
+        bottom = int(ys.max())
+
+        progress = max(0.0, min(1.0, float(progress)))
+
+        boundary = bottom - int(
+            progress * (bottom - top + 1)
+        )
+
+        filled = (
+            (mask > 0)
+            & (np.arange(frame.shape[0])[:, None] >= boundary)
+        )
+
+        alpha = 0.20
+        green = np.array([0, 255, 0], dtype=np.float32)
+
+        frame[filled] = (
+            frame[filled].astype(np.float32) * (1.0 - alpha)
+            + green * alpha
+        ).astype(np.uint8)
+
+        cv2.drawContours(
+            frame, contours, -1, (0, 255, 0), 2
+        )
+
+
+
+    def _draw_target_loading(self, frame):
+        if not self.attempt_active:
+            return
+
+        if self.target_hold_since is None:
+            return
+
+        if self.outcome == "TRACKING LOST":
+            return
+
+        progress = (
+            time.monotonic() - self.target_hold_since
+        ) / max(self.target_hold_seconds, 0.001)
+
+        self._draw_silhouette_fill(
+            frame, self.target_center, 3.5, progress
+        )
+
+    def _instruction(self):
+        now = time.monotonic()
+
+        if self.outcome == "COMPLETED":
+            return "REPETITION COMPLETE - RETURN TO START", (0, 255, 0)
+
+        if self.outcome == "TRACKING LOST":
+            return "TRACKING LOST - HOLD POSITION", (0, 165, 255)
+
+        if self.attempt_active:
+            if now < self.go_display_until:
+                return "GO!", (0, 255, 0)
+
+            if self.target_hold_since is not None:
+                progress = min(100, int(
+                    100 * (now - self.target_hold_since)
+                    / max(self.target_hold_seconds, 0.001)
+                ))
+                return f"HOLD AT TARGET - {progress}%", (0, 191, 255)
+
+            if now < self.tracking_restored_until:
+                return "TRACKING RESTORED - CONTINUE", (0, 255, 0)
+
+            if self.progress_fraction >= self.completion_progress_threshold:
+                return "MOVE OBJECT INTO TARGET", (0, 191, 255)
+
+            return "MOVE TOWARD TARGET", (255, 255, 255)
+
+        if self.start_confirmation_progress > 0:
+            return (
+                f"HOLD AT START - "
+                f"{int(self.start_confirmation_progress * 100)}%",
+                (0, 255, 0)
             )
 
-            cv2.line(
-                frame, a, endpoint, (0, 255, 0), 4
-            )
-            remaining -= length
+        return "MOVE OBJECT TO START", (255, 255, 255)
+
+    def _draw_instruction(self, frame):
+        message, color = self._instruction()
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        scale = min(0.9, max(0.42, frame.shape[1] / 1500.0))
+        thickness = 2
+
+        (width, height), _ = cv2.getTextSize(
+            message, font, scale, thickness
+        )
+
+        x = max(8, (frame.shape[1] - width) // 2)
+        y = min(frame.shape[0] - 12, max(115, height + 80))
+
+        cv2.putText(
+            frame, message, (x, y), font, scale,
+            (0, 0, 0), thickness + 4, cv2.LINE_AA
+        )
+        cv2.putText(
+            frame, message, (x, y), font, scale,
+            color, thickness, cv2.LINE_AA
+        )
 
     def _project_to_path(self, point):
         """Return closest path position, measured in pixels."""
@@ -506,6 +667,7 @@ class GameTrajectory(TrajectoryAssessment):
             (0, 220, 0), scale=3.5,
         )
         self._draw_start_loading(frame)
+        self._draw_target_loading(frame)
 
         # Show the exact desired centre and the
         # acceptable starting region.
@@ -586,12 +748,21 @@ class GameTrajectory(TrajectoryAssessment):
             self.attempt_active
             and time.monotonic() < self.go_display_until
         ):
+            go_text = "GO!"
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            scale = min(3.0, max(1.5, frame.shape[1] / 430.0))
+            thickness = max(3, int(scale * 2))
+            (text_width, text_height), _ = cv2.getTextSize(
+                go_text, font, scale, thickness
+            )
+            position = (
+                max(0, (frame.shape[1] - text_width) // 2),
+                (frame.shape[0] + text_height) // 2,
+            )
             cv2.putText(
-                frame, "GO!",
-                (self.start_point[0] + 30,
-                 self.start_point[1] - 60),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1.2, (0, 255, 0), 3,
+                frame, go_text, position,
+                font, scale, (0, 255, 0),
+                thickness, cv2.LINE_AA,
             )
 
         cv2.putText(
@@ -603,4 +774,5 @@ class GameTrajectory(TrajectoryAssessment):
             0.65, (255, 255, 255), 2,
         )
 
+        self._draw_instruction(frame)
         return frame

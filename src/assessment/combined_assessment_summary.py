@@ -2,6 +2,7 @@
 
 import csv
 import json
+import math
 from collections import Counter
 from pathlib import Path
 
@@ -55,6 +56,35 @@ def summarize_grasps(rows):
     }
 
 
+
+def valid_timestamp(value):
+    """Return a finite, nonnegative timestamp or None."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) and number >= 0 else None
+
+
+def rows_in_attempt(rows, start, end):
+    """Select observations within a valid attempt window."""
+    start = valid_timestamp(start)
+    end = valid_timestamp(end)
+
+    if start is None or end is None or end < start:
+        return None
+
+    selected = []
+    for row in rows:
+        timestamp = valid_timestamp(row.get("timestamp_ms"))
+        if timestamp is not None and start <= timestamp <= end:
+            selected.append(row)
+
+    return selected
+
+
 def load_combined_session(session_id):
     """Load and summarize one recorded session."""
     trajectory_file = (
@@ -86,15 +116,12 @@ def load_combined_session(session_id):
         start = attempt.get("start_timestamp_ms")
         end = attempt.get("end_timestamp_ms")
 
-        if start is None or end is None:
+        attempt_rows = rows_in_attempt(rows, start, end)
+
+        if attempt_rows is None:
             grasp_summary = None
             alignment_status = "TIMESTAMPS_UNAVAILABLE"
         else:
-            attempt_rows = [
-                row for row in rows
-                if row.get("timestamp_ms")
-                and start <= float(row["timestamp_ms"]) <= end
-            ]
             grasp_summary = summarize_grasps(attempt_rows)
             alignment_status = (
                 "OBSERVATIONS_FOUND"

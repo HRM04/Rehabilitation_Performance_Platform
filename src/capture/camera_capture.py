@@ -610,10 +610,9 @@ try:
             perf_start = time.perf_counter()
             results = hands.process(rgb_frame)
             perf_totals["hands"] += time.perf_counter() - perf_start
-            draw_detected_objects(
-                frame,
-                detected_objects
-            )
+            # YOLO detection remains active for tracking and logging.
+            # Hide bounding boxes and class labels in the assessment view.
+            # draw_detected_objects(frame, detected_objects)
 
             # Display YOLO and application-level object IDs
             for tracked_object in permitted_detected_objects:
@@ -1972,9 +1971,7 @@ try:
                     )
 
 
-        # -------------------------------------------------
-        # Live compensation-related posture feedback
-        # -------------------------------------------------
+        # Compact posture feedback; no opaque overlay.
         if camera_mode == "TASK":
             reference = posture_calibration.get_reference()
             baseline = (
@@ -1982,7 +1979,6 @@ try:
                 if isinstance(reference, dict)
                 else None
             )
-
             trunk = calculate_trunk_posture(
                 baseline, upper_body_landmarks
             )
@@ -1990,159 +1986,54 @@ try:
                 baseline, upper_body_landmarks
             )
 
-            feedback_lines = []
-            feedback_color = (255, 255, 255)
-
             if not baseline:
-                feedback_lines = ["Posture reference unavailable"]
+                posture_text = "Posture: not calibrated"
+                posture_color = (0, 255, 255)
             elif trunk is None or shoulders is None:
-                feedback_lines = ["Upper-body posture not detected"]
+                posture_text = "Posture: trunk metrics unavailable"
+                posture_color = (0, 255, 255)
             else:
-                inclination = abs(
-                    trunk["inclination_change_deg"]
-                )
-                shift = abs(trunk["lateral_shift_norm"])
+                inclination = abs(trunk["inclination_change_deg"])
                 elevation = max(
                     shoulders["left_shoulder_elevation_norm"],
                     shoulders["right_shoulder_elevation_norm"],
                 )
-
-                feedback_lines = [
-                    f"Trunk inclination change: {inclination:.1f} deg",
-                    f"Trunk lateral shift: {shift:.3f}",
-                    f"Shoulder elevation: {elevation:.3f}",
-                ]
-
                 if inclination > 10:
-                    feedback_lines.append("Keep your trunk steady")
-                    feedback_color = (0, 165, 255)
+                    posture_text = "Posture: trunk movement detected"
+                    posture_color = (0, 165, 255)
                 elif elevation > 0.03:
-                    feedback_lines.append("Reduce shoulder elevation")
-                    feedback_color = (0, 165, 255)
+                    posture_text = "Posture: shoulder elevation detected"
+                    posture_color = (0, 165, 255)
                 else:
-                    feedback_lines.append("Posture within target range")
-                    feedback_color = (0, 200, 0)
-
-            # Draw a readable background behind feedback.
-            overlay_height = 35 + 30 * len(feedback_lines)
-
-            cv2.rectangle(
-                frame,
-                (10, 10),
-                (min(frame.shape[1] - 10, 540), overlay_height),
-                (25, 25, 25),
-                -1,
-            )
+                    posture_text = "Posture: within provisional range"
+                    posture_color = (0, 200, 0)
 
             cv2.putText(
-                frame,
-                "LIVE POSTURE MONITORING",
-                (20, 35),
+                frame, posture_text,
+                (12, frame.shape[0] - 42),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.65,
-                (255, 255, 255),
-                2,
+                0.45, posture_color, 1, cv2.LINE_AA,
             )
-
-            for index, message in enumerate(feedback_lines):
-                cv2.putText(
-                    frame,
-                    message,
-                    (20, 65 + index * 30),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.58,
-                    feedback_color,
-                    2,
-                )
 
         writer.write(frame)
 
-        # Temporary camera mode diagnostic
-        cv2.rectangle(
-            frame,
-            (10, frame.shape[0] - 55),
-            (360, frame.shape[0] - 10),
-            (30, 30, 30),
-            -1,
+        # Compact calibration status; preserve trajectory HUD.
+        calibration_mode = (
+            posture_calibration.result.get("calibration_mode")
+            if isinstance(posture_calibration.result, dict)
+            else None
         )
+        calibration_label = posture_calibration.status
+        if calibration_label == "READY" and calibration_mode:
+            calibration_label += f" ({calibration_mode})"
+
         cv2.putText(
             frame,
-            f"CAMERA MODE: {camera_mode}",
-            (20, frame.shape[0] - 25),
+            f"Calibration: {calibration_label}",
+            (12, frame.shape[0] - 18),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 255),
-            2,
+            0.48, (0, 255, 0), 1, cv2.LINE_AA,
         )
-
-        # Temporary camera mode diagnostic
-        cv2.rectangle(
-            frame,
-            (10, frame.shape[0] - 55),
-            (360, frame.shape[0] - 10),
-            (30, 30, 30),
-            -1,
-        )
-        cv2.putText(
-            frame,
-            f"CAMERA MODE: {camera_mode}",
-            (20, frame.shape[0] - 25),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 255),
-            2,
-        )
-
-        # Calibration diagnostic overlay
-        cv2.putText(
-            frame,
-            f"Calibration: {posture_calibration.status}",
-            (20, frame.shape[0] - 85),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.65,
-            (0, 255, 255),
-            2,
-        )
-        # Calibration diagnostic overlay
-        cv2.putText(
-            frame,
-            f"Calibration: {posture_calibration.status}",
-            (20, frame.shape[0] - 85),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.65,
-            (0, 255, 255),
-            2,
-        )
-        # SHOWCASE CONTROL GUIDE
-        guide_lines = [
-            "SHOWCASE CONTROLS",
-            "S: Start task | C: Calibrate | V: Validate",
-            "1-4: Trajectory presets | Q: Quit",
-            "Object/repetition: use existing controls",
-        ]
-
-        guide_x = max(10, frame.shape[1] - 490)
-        guide_y = 25
-
-        cv2.rectangle(
-            frame,
-            (guide_x - 10, guide_y - 20),
-            (frame.shape[1] - 10, guide_y + 104),
-            (25, 25, 25),
-            -1,
-        )
-
-        for guide_index, guide_text in enumerate(guide_lines):
-            cv2.putText(
-                frame,
-                guide_text,
-                (guide_x, guide_y + guide_index * 27),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.48,
-                (255, 255, 255),
-                1,
-                cv2.LINE_AA,
-            )
 
         cv2.imshow("Camera Capture", frame)
 

@@ -55,8 +55,24 @@ def prepare_posture_calibration(
             "stability": stability,
         }
 
+    reference_frames = calibration_frames
+    if stability.get("calibration_mode") == "PARTIAL":
+        # Suppress optional hips in the reference to match
+        # the validated shoulder-only stability result.
+        reference_frames = [
+            {
+                **frame,
+                "landmarks": {
+                    name: point
+                    for name, point in (frame.get("landmarks") or {}).items()
+                    if name in ("left_shoulder", "right_shoulder")
+                },
+            }
+            for frame in calibration_frames
+        ]
+
     reference = calibrate_reference_posture(
-        calibration_frames,
+        reference_frames,
         min_valid_frames=min_valid_frames,
         min_visibility=min_visibility,
     )
@@ -72,6 +88,13 @@ def prepare_posture_calibration(
 
     return {
         "status": "READY",
+        "calibration_mode": reference["calibration_mode"],
+        "trunk_reference_available":
+            reference["trunk_reference_available"],
+        "shoulder_elevation_reference_available":
+            reference["shoulder_elevation_reference_available"],
+        "unavailable_measurements":
+            reference["unavailable_measurements"],
         "reference_posture": reference,
         "total_frames": len(calibration_frames),
         "valid_frames": reference["valid_frames"],
