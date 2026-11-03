@@ -1,0 +1,918 @@
+
+=================================================================
+src/object_detection/object_tracker.py
+=================================================================
+1: import math
+2: 
+3: from src.object_detection.yolo_detector import model
+4: 
+5: 
+6: def track_objects(frame, allowed_classes=None):
+7:     """
+8:     Detect and track objects in a camera frame.
+9: 
+10:     Parameters
+11:     ----------
+12:     frame:
+13:         Camera frame to process.
+14: 
+15:     allowed_classes:
+16:         Optional list of permitted class names.
+17:         If None, track all supported object classes.
+18: 
+19:     Returns
+20:     -------
+21:     list:
+22:         Detected objects, including tracking IDs when available.
+23:     """
+24: 
+25:     class_ids = None
+26: 
+27:     if allowed_classes is not None:
+28:         class_ids = [
+29:             class_id
+30:             for class_id, class_name in model.names.items()
+31:             if class_name in allowed_classes
+32:         ]
+33: 
+34:         if not class_ids:
+35:             return []
+36: 
+37:     results = model.track(
+38:         frame,
+39:         persist=True,
+40:         conf=0.15,
+41:         classes=class_ids,
+42:         tracker="bytetrack.yaml",
+43:         verbose=False
+44:     )
+45: 
+46:     tracked_objects = []
+47: 
+48:     for result in results:
+49: 
+50:         if result.boxes is None:
+51:             continue
+52: 
+53:         for box in result.boxes:
+54: 
+55:             class_id = int(box.cls[0])
+56:             class_name = model.names[class_id]
+57:             confidence = float(box.conf[0])
+58: 
+59:             x1, y1, x2, y2 = map(
+60:                 int,
+61:                 box.xyxy[0]
+62:             )
+63: 
+64:             center_x = int((x1 + x2) / 2)
+65:             center_y = int((y1 + y2) / 2)
+66: 
+67:             track_id = (
+68:                 int(box.id[0])
+69:                 if box.id is not None
+70:                 else None
+71:             )
+72: 
+73:             tracked_objects.append({
+74:                 "track_id": track_id,
+75:                 "class_name": class_name,
+76:                 "confidence": confidence,
+77:                 "bounding_box": (x1, y1, x2, y2),
+78:                 "center": (center_x, center_y),
+79:                 "tracking_status": (
+80:                     "TRACKED"
+81:                     if track_id is not None
+82:                     else "UNASSIGNED"
+83:                 )
+84:             })
+85: 
+86:     return tracked_objects
+87: 
+88: 
+89: class ObjectIdentityTracker:
+90:     """
+91:     Maintain application-level IDs for detected objects.
+92: 
+93:     Association priority:
+94:     1. Reuse the same application ID when the YOLO track ID
+95:        matches a recently seen object of the same class.
+96:     2. Otherwise, try to reassociate by spatial proximity.
+97:     3. Otherwise, create a new application ID.
+98: 
+99:     This is still a prototype. Application IDs are not proof
+100:     of true physical-object identity.
+101:     """
+102: 
+103:     def __init__(
+104:         self,
+105:         max_missing_frames=2,
+106:         max_match_distance=100
+107:     ):
+108:         self.max_missing_frames = max_missing_frames
+109:         self.max_match_distance = max_match_distance
+110: 
+111:         self.frame_number = 0
+112:         self.next_object_id = 1
+113: 
+114:         self.active_objects = {}
+115: 
+116:     def _is_expired(self, previous_object):
+117:         missing_frames = (
+118:             self.frame_number
+119:             - previous_object["last_seen_frame"]
+120:             - 1
+121:         )
+122:         return missing_frames > self.max_missing_frames
+123: 
+124:     def _distance(self, center_a, center_b):
+125:         x1, y1 = center_a
+126:         x2, y2 = center_b
+127:         return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+128: 
+129:     def update(self, detected_objects):
+130:         """
+131:         Associate current detections with previous objects.
+132: 
+133:         Returns the current detections with:
+134:             object_id
+135:             identity_status
+136:             identity_confidence
+137:         """
+138: 
+139:         self.frame_number += 1
+140: 
+141:         # Remove expired objects
+142:         expired_ids = []
+143: 
+144:         for object_id, previous in self.active_objects.items():
+145:             if self._is_expired(previous):
+146:                 expired_ids.append(object_id)
+147: 
+148:         for object_id in expired_ids:
+149:             del self.active_objects[object_id]
+150: 
+151:         current_objects = [
+152:             detected_object.copy()
+153:             for detected_object in detected_objects
+154:         ]
+155: 
+156:         unmatched_previous_ids = set(self.active_objects.keys())
+157:         assigned_current_indices = set()
+158: 
+159:         # -------------------------------------------------
+160:         # PASS 1: Match by YOLO track ID continuity
+161:         # -------------------------------------------------
+162:         for index, detected_object in enumerate(current_objects):
+163: 
+164:             yolo_track_id = detected_object.get("track_id")
+165: 
+166:             if yolo_track_id is None:
+167:                 continue
+168: 
+169:             candidates = []
+170: 
+171:             for object_id in unmatched_previous_ids:
+172:                 previous = self.active_objects[object_id]
+173: 
+174:                 if previous["class_name"] != detected_object["class_name"]:
+175:                     continue
+176: 
+177:                 if previous.get("yolo_track_id") == yolo_track_id:
+178:                     candidates.append(object_id)
+179: 
+180:             if len(candidates) == 1:
+181:                 object_id = candidates[0]
+182: 
+183:                 detected_object["object_id"] = object_id
+184:                 detected_object["identity_status"] = "TRACK_CONTINUED"
+185:                 detected_object["identity_confidence"] = "HIGH"
+186: 
+187:                 assigned_current_indices.add(index)
+188:                 unmatched_previous_ids.remove(object_id)
+189: 
+190:         # -------------------------------------------------
+191:         # PASS 2: Match remaining detections by distance
+192:         # -------------------------------------------------
+193:         for index, detected_object in enumerate(current_objects):
+194: 
+195:             if index in assigned_current_indices:
+196:                 continue
+197: 
+198:             spatial_candidates = []
+199: 
+200:             for object_id in unmatched_previous_ids:
+201:                 previous = self.active_objects[object_id]
+202: 
+203:                 if previous["class_name"] != detected_object["class_name"]:
+204:                     continue
+205: 
+206:                 distance = self._distance(
+207:                     detected_object["center"],
+208:                     previous["center"]
+209:                 )
+210: 
+211:                 if distance <= self.max_match_distance:
+212:                     spatial_candidates.append(
+213:                         (distance, object_id)
+214:                     )
+215: 
+216:             spatial_candidates.sort(
+217:                 key=lambda item: item[0]
+218:             )
+219: 
+220:             if len(spatial_candidates) == 1:
+221:                 distance, object_id = spatial_candidates[0]
+222: 
+223:                 detected_object["object_id"] = object_id
+224:                 detected_object["identity_status"] = "REASSOCIATED"
+225:                 detected_object["identity_confidence"] = "PROVISIONAL"
+226: 
+227:                 assigned_current_indices.add(index)
+228:                 unmatched_previous_ids.remove(object_id)
+229: 
+230:             elif len(spatial_candidates) > 1:
+231:                 # Too many plausible matches
+232:                 object_id = self.next_object_id
+233:                 self.next_object_id += 1
+234: 
+235:                 detected_object["object_id"] = object_id
+236:                 detected_object["identity_status"] = "AMBIGUOUS_NEW"
+237:                 detected_object["identity_confidence"] = "UNCERTAIN"
+238: 
+239:                 assigned_current_indices.add(index)
+240: 
+241:         # -------------------------------------------------
+242:         # PASS 3: Assign brand-new IDs
+243:         # -------------------------------------------------
+244:         for index, detected_object in enumerate(current_objects):
+245: 
+246:             if index in assigned_current_indices:
+247:                 continue
+248: 
+249:             object_id = self.next_object_id
+250:             self.next_object_id += 1
+251: 
+252:             detected_object["object_id"] = object_id
+253:             detected_object["identity_status"] = "NEW"
+254:             detected_object["identity_confidence"] = "UNVERIFIED"
+255: 
+256:         # -------------------------------------------------
+257:         # Update active objects with current observations
+258:         # -------------------------------------------------
+259:         updated_objects = {}
+260: 
+261:         for detected_object in current_objects:
+262:             object_id = detected_object["object_id"]
+263: 
+264:             updated_objects[object_id] = {
+265:                 "class_name": detected_object["class_name"],
+266:                 "center": detected_object["center"],
+267:                 "bounding_box": detected_object["bounding_box"],
+268:                 "last_seen_frame": self.frame_number,
+269:                 "yolo_track_id": detected_object.get("track_id"),
+270:             }
+271: 
+272:         self.active_objects.update(updated_objects)
+273: 
+274:         return current_objects
+
+=================================================================
+src/object_detection/object_detection_tracker.py
+=================================================================
+1: class ObjectDetectionTracker:
+2: 
+3:     def __init__(
+4:         self,
+5:         lost_after_frames=3,
+6:         uncertain_threshold=0.25
+7:     ):
+8:         self.lost_after_frames = lost_after_frames
+9:         self.uncertain_threshold = uncertain_threshold
+10: 
+11:         self.object_seen_before = False
+12:         self.missing_frame_count = 0
+13: 
+14: 
+15:     def update(self, permitted_objects):
+16: 
+17:         # No permitted object detected in this frame
+18:         if not permitted_objects:
+19: 
+20:             if self.object_seen_before:
+21:                 self.missing_frame_count += 1
+22: 
+23:                 if self.missing_frame_count >= self.lost_after_frames:
+24:                     return "LOST_DETECTION"
+25: 
+26:                 return "TEMPORARILY_MISSING"
+27: 
+28:             return "NO_PERMITTED_OBJECT"
+29: 
+30:         # At least one permitted object is visible
+31:         self.object_seen_before = True
+32:         self.missing_frame_count = 0
+33: 
+34:         highest_confidence = max(
+35:             obj["confidence"]
+36:             for obj in permitted_objects
+37:         )
+38: 
+39:         if highest_confidence < self.uncertain_threshold:
+40:             return "UNCERTAIN"
+41: 
+42:         return "DETECTED"
+
+=================================================================
+src/assessment/trajectory_assessment.py
+=================================================================
+125: 
+126:         # Only allow switching between attempts.
+127:         self.reset()
+128: 
+129:         print(f"Trajectory preset selected: {preset_name}")
+130: 
+131:     def reset(self):
+132:         """
+133:         Fully reset trajectory assessment for a new session.
+134:         """
+135: 
+136:         self.actual_path = []
+137:         self.trajectory_samples = []
+138: 
+139:         self.attempt_active = False
+140:         self.attempt_completed = False
+141:         self.active_object_id = None
+142:         self.inactive_frame_count = 0
+143: 
+144:     def start_attempt(self, object_id=None):
+145:         """
+146:         Start a new trajectory attempt.
+147:         """
+148: 
+149:         self.attempt_completed = False
+150:         self.actual_path = []
+151:         self.attempt_active = True
+152:         self.active_object_id = object_id
+153:         self.inactive_frame_count = 0
+154: 
+155:     def end_attempt(self):
+156:         """
+157:         End the current trajectory attempt while preserving
+158:         the completed path for review.
+159:         """
+160: 
+161:         self.attempt_active = False
+162:         self.attempt_completed = True
+163:         self.inactive_frame_count = 0
+164: 
+165:     def update_attempt_state(
+166:         self,
+167:         interaction_active,
+168:         grace_frames=10,
+169:     ):
+170:         """
+171:         Update the trajectory attempt lifecycle.
+172: 
+173:         Brief interruptions in interaction evidence are
+174:         tolerated before an attempt is ended.
+175: 
+176:         Returns True only when the attempt has just ended.
+177:         """
+178: 
+179:         if not self.attempt_active:
+180:             return False
+181: 
+182:         if interaction_active:
+183:             self.inactive_frame_count = 0
+184:             return False
+185: 
+186:         self.inactive_frame_count += 1
+187: 
+188:         if self.inactive_frame_count >= grace_frames:
+189:             self.end_attempt()
+190:             return True
+191: 
+192:         return False
+193: 
+194:     def update(self, object_center, object_id=None, timestamp_ms=None,):
+195:         """
+196:         Add the current tracked-object center to the trajectory.
+197:         """
+198: 
+199:         if not self.attempt_active:
+200:             return
+201: 
+202:         if (
+203:             self.active_object_id is not None
+204:             and object_id != self.active_object_id
+205:         ):
+206:             return
+207: 
+208:         if object_center is None:
+209:             return
+210: 
+211:         point = (
+212:             int(object_center[0]),
+213:             int(object_center[1]),
+214:         )
+215: 
+535:         target = np.asarray(
+536:             self.target_center,
+537:             dtype=float,
+538:         )
+539: 
+540:         return float(
+541:             np.linalg.norm(
+542:                 current_position - target
+543:             )
+544:         )
+545: 
+546:     def target_reached(self):
+547:         """
+548:         Determine whether the current object center lies
+549:         inside the target region.
+550:         """
+551: 
+552:         target_error = (
+553:             self.calculate_final_target_error()
+554:         )
+555: 
+556:         if target_error is None:
+557:             return False
+558: 
+559:         return (
+560:             target_error <= self.target_radius
+561:         )
+562: 
+563:     def _point_to_segment_distance(
+564:         self,
+565:         point,
+655: 
+656:         return float(
+657:             np.mean(deviations)
+658:         )
+659: 
+660:     def get_metrics(self):
+661:         """
+662:         Return the current trajectory-assessment results.
+663:         """
+664: 
+665:         return {
+666:             "path_length_px":
+667:                 self.calculate_path_length(),
+668: 
+669:             "direct_displacement_px":
+670:                 self.calculate_direct_displacement(),
+671: 
+672:             "movement_efficiency":
+673:                 self.calculate_movement_efficiency(),
+674: 
+675:             "mean_trajectory_deviation_px":
+676:                 self.calculate_trajectory_deviation(),
+677: 
+678:             "final_target_error_px":
+679:                 self.calculate_final_target_error(),
+680: 
+681:             "target_reached":
+682:                 self.target_reached(),
+683:         }
+684: 
+685:     def draw(self, frame):
+
+=================================================================
+src/assessment/game_trajectory.py
+=================================================================
+1: """
+2: Game visualization for the existing trajectory assessment.
+3: 
+4: Keeps the original assessment calculations while adding:
+5: - Blue dotted remaining path
+6: - Green solid completed path
+7: - Red actual movement path
+8: - Object-specific start/target silhouettes
+9: - Time-based interaction-loss tolerance
+10: """
+11: 
+12: import math
+13: import time
+14: 
+15: import cv2
+16: import numpy as np
+17: 
+18: from src.assessment.trajectory_assessment import TrajectoryAssessment
+19: 
+20: 
+21: class GameTrajectory(TrajectoryAssessment):
+22: 
+23:     def __init__(
+24:         self,
+25:         *args,
+26:         object_name="bottle",
+27:         grace_seconds=3.0,
+28:         **kwargs,
+29:     ):
+30:         super().__init__(*args, **kwargs)
+31:         self.object_name = object_name
+32:         self.grace_seconds = grace_seconds
+33:         self.last_interaction_time = None
+34:         self.progress_fraction = 0.0
+35:         self.start_hold_seconds = 0.5
+36:         self.start_tolerance_px = 65
+37:         self.start_hold_since = None
+38:         self.start_candidate_id = None
+39:         self.start_confirmation_progress = 0.0
+40: 
+41:     def reset(self):
+42:         super().reset()
+43:         self.last_interaction_time = None
+44:         self.progress_fraction = 0.0
+45:         self.clear_start_confirmation()
+46: 
+47:     def start_attempt(self, object_id=None):
+48:         super().start_attempt(object_id=object_id)
+49:         self.last_interaction_time = time.monotonic()
+50:         self.progress_fraction = 0.0
+51: 
+52:     def end_attempt(self):
+53:         super().end_attempt()
+54:         self.last_interaction_time = None
+55: 
+56:     def update_attempt_state(
+57:         self,
+58:         interaction_active,
+59:         grace_frames=10,
+60:     ):
+61:         # Retain the old signature for camera compatibility.
+62:         if not self.attempt_active:
+63:             return False
+64: 
+65:         now = time.monotonic()
+66: 
+67:         if interaction_active:
+68:             self.last_interaction_time = now
+69:             return False
+70: 
+71:         if self.last_interaction_time is None:
+72:             self.last_interaction_time = now
+73: 
+74:         if now - self.last_interaction_time >= self.grace_seconds:
+75:             self.end_attempt()
+76:             return True
+77: 
+78:         return False
+79: 
+80:     def clear_start_confirmation(self):
+81:         self.start_hold_since = None
+82:         self.start_candidate_id = None
+83:         self.start_confirmation_progress = 0.0
+84: 
+85:     def consider_start(self, object_id, object_center):
+86:         if self.attempt_active or object_center is None:
+87:             return False
+88: 
+89:         distance = math.dist(
+90:             object_center, self.start_point
+91:         )
+92: 
+93:         if distance > self.start_tolerance_px:
+94:             self.clear_start_confirmation()
+95:             return False
+96: 
+97:         now = time.monotonic()
+98: 
+99:         if self.start_candidate_id != object_id:
+100:             self.start_candidate_id = object_id
+101:             self.start_hold_since = now
+102:             self.start_confirmation_progress = 0.0
+103:             return False
+104: 
+105:         elapsed = now - self.start_hold_since
+106: 
+107:         self.start_confirmation_progress = min(
+108:             1.0, elapsed / self.start_hold_seconds
+109:         )
+110: 
+111:         if elapsed >= self.start_hold_seconds:
+112:             self.start_attempt(object_id=object_id)
+113:             return True
+114: 
+115:         return False
+116: 
+117:     def _draw_start_loading(self, frame):
+118:         if self.attempt_active:
+119:             return
+120: 
+121:         progress = self.start_confirmation_progress
+122:         if progress <= 0:
+123:             return
+124: 
+125:         x, y = map(int, self.start_point)
+126: 
+127:         width, height = 45, 84
+128:         left, right = x - width // 2, x + width // 2
+129:         top, bottom = y - height // 2, y + height // 2
+130: 
+131:         corners = [
+132:             (left, top), (right, top),
+133:             (right, bottom), (left, bottom),
+134:             (left, top),
+135:         ]
+136: 
+137:         remaining = progress * 2 * (width + height)
+138: 
+139:         for a, b in zip(corners[:-1], corners[1:]):
+140:             length = math.dist(a, b)
+141:             if remaining <= 0:
+142:                 break
+143: 
+144:             fraction = min(1.0, remaining / length)
+145:             endpoint = (
+146:                 int(a[0] + (b[0] - a[0]) * fraction),
+147:                 int(a[1] + (b[1] - a[1]) * fraction),
+148:             )
+149: 
+150:             cv2.line(
+151:                 frame, a, endpoint, (0, 255, 0), 4
+152:             )
+153:             remaining -= length
+154: 
+155:     def _project_to_path(self, point):
+156:         """Return closest path position, measured in pixels."""
+157:         path = self.desired_path
+158: 
+159:         if len(path) < 2:
+160:             return 0.0, 0.0
+161: 
+162:         cumulative = 0.0
+163:         best_distance = float("inf")
+164:         best_position = 0.0
+165:         total_length = 0.0
+166: 
+167:         for a, b in zip(path[:-1], path[1:]):
+168:             total_length += math.dist(a, b)
+169: 
+170:         for a, b in zip(path[:-1], path[1:]):
+171:             ax, ay = a
+172:             bx, by = b
+173:             dx, dy = bx - ax, by - ay
+174:             length_sq = dx * dx + dy * dy
+175: 
+176:             if length_sq == 0:
+177:                 continue
+178: 
+179:             t = max(
+180:                 0.0,
+181:                 min(
+182:                     1.0,
+183:                     (
+184:                         (point[0] - ax) * dx
+185:                         + (point[1] - ay) * dy
+186:                     ) / length_sq,
+187:                 ),
+188:             )
+189: 
+190:             projection = (ax + t * dx, ay + t * dy)
+191:             distance = math.dist(point, projection)
+192:             segment_length = math.sqrt(length_sq)
+193: 
+194:             if distance < best_distance:
+195:                 best_distance = distance
+196:                 best_position = cumulative + t * segment_length
+197: 
+198:             cumulative += segment_length
+199: 
+200:         fraction = (
+201:             best_position / total_length
+202:             if total_length > 0
+203:             else 0.0
+204:         )
+205:         return fraction, best_distance
+206: 
+207:     def update(self, object_center, object_id=None, timestamp_ms=None):
+208:         before = len(self.actual_path)
+209: 
+210:         super().update(
+211:             object_center,
+212:             object_id=object_id,
+213:             timestamp_ms=timestamp_ms,
+214:         )
+215: 
+216:         if len(self.actual_path) == before:
+217:             return
+218: 
+219:         fraction, distance = self._project_to_path(
+220:             self.actual_path[-1]
+221:         )
+222: 
+223:         # Only advance progress when the object is close
+224:         # enough to the desired path.
+225:         tolerance_px = max(40, self.target_radius)
+226: 
+227:         if distance <= tolerance_px:
+228:             self.progress_fraction = max(
+229:                 self.progress_fraction,
+230:                 fraction,
+231:             )
+232: 
+233:     def _draw_path(self, frame):
+234:         path = self.desired_path
+235: 
+236:         if len(path) < 2:
+237:             return
+238: 
+239:         lengths = [
+240:             math.dist(a, b)
+241:             for a, b in zip(path[:-1], path[1:])
+242:         ]
+243:         total = sum(lengths)
+244: 
+245:         if total <= 0:
+246:             return
+247: 
+248:         completed_distance = self.progress_fraction * total
+249:         travelled = 0.0
+250: 
+251:         for (a, b), length in zip(
+252:             zip(path[:-1], path[1:]),
+253:             lengths,
+254:         ):
+255:             if length <= 0:
+256:                 continue
+257: 
+258:             steps = max(1, math.ceil(length / 5))
+259: 
+260:             for step in range(steps):
+261:                 t0 = step / steps
+262:                 t1 = (step + 1) / steps
+263: 
+264:                 p0 = (
+265:                     int(a[0] + (b[0] - a[0]) * t0),
+266:                     int(a[1] + (b[1] - a[1]) * t0),
+267:                 )
+268:                 p1 = (
+269:                     int(a[0] + (b[0] - a[0]) * t1),
+270:                     int(a[1] + (b[1] - a[1]) * t1),
+271:                 )
+272: 
+273:                 midpoint_distance = (
+274:                     travelled + (t0 + t1) * 0.5 * length
+275:                 )
+276: 
+277:                 if midpoint_distance <= completed_distance:
+278:                     # Green completed segment.
+279:                     cv2.line(
+280:                         frame, p0, p1, (0, 210, 0), 4
+281:                     )
+282:                 else:
+283:                     # Blue dotted remaining segment.
+284:                     # Never draw blue underneath green.
+285:                     if (int(midpoint_distance / 10) % 2) == 0:
+286:                         cv2.line(
+287:                             frame, p0, p1, (255, 150, 0), 3
+288:                         )
+289: 
+290:             travelled += length
+291: 
+292:     def _draw_object_icon(self, frame, center, color, scale=1.0):
+293:         x, y = map(int, center)
+294:         name = self.object_name.lower()
+295: 
+296:         def scaled(value):
+297:             return max(1, int(round(value * scale)))
+298: 
+299:         if name in ("sports ball", "apple"):
+300:             cv2.circle(frame, (x, y), scaled(28), color, 2)
+301: 
+302:         elif name in ("cell phone", "remote", "book"):
+303:             w, h = (
+304:                 (30, 56) if name == "cell phone"
+305:                 else (24, 70) if name == "remote"
+306:                 else (58, 44)
+307:             )
+308:             w, h = scaled(w), scaled(h)
+309:             cv2.rectangle(
+310:                 frame,
+311:                 (x - w // 2, y - h // 2),
+312:                 (x + w // 2, y + h // 2),
+313:                 color,
+314:                 2,
+315:             )
+316: 
+317:         elif name == "bottle":
+318:             points = np.array([
+319:                 [x - 10, y - 35],
+320:                 [x + 10, y - 35],
+321:                 [x + 10, y - 22],
+322:                 [x + 20, y - 15],
+323:                 [x + 20, y + 35],
+324:                 [x - 20, y + 35],
+325:                 [x - 20, y - 15],
+326:                 [x - 10, y - 22],
+327:             ], dtype=np.int32)
+328:             cv2.polylines(frame, [points], True, color, 2)
+329: 
+330:         elif name in ("cup", "bowl"):
+331:             w = 38 if name == "cup" else 55
+332:             h = 42 if name == "cup" else 25
+333:             cv2.rectangle(
+334:                 frame,
+335:                 (x - w // 2, y - h // 2),
+336:                 (x + w // 2, y + h // 2),
+337:                 color,
+338:                 2,
+339:             )
+340:             if name == "cup":
+341:                 cv2.ellipse(
+342:                     frame,
+343:                     (x + w // 2 + 7, y),
+344:                     (9, 13),
+345:                     0, -90, 90, color, 2,
+346:                 )
+347: 
+348:         elif name in ("spoon", "fork", "toothbrush"):
+349:             cv2.line(
+350:                 frame, (x, y - 30), (x, y + 35),
+351:                 color, 3,
+352:             )
+353:             cv2.ellipse(
+354:                 frame,
+355:                 (x, y - 24),
+356:                 (9, 15),
+357:                 0, 0, 360, color, 2,
+358:             )
+359: 
+360:         else:
+361:             # Provisional generic silhouette for objects
+362:             # without a dedicated icon yet.
+363:             cv2.rectangle(
+364:                 frame,
+365:                 (x - 22, y - 28),
+366:                 (x + 22, y + 28),
+367:                 color,
+368:                 2,
+369:             )
+370: 
+371:         cv2.circle(frame, (x, y), 3, color, -1)
+372: 
+373:     def draw(self, frame):
+374:         # Draw desired path with mutually exclusive colors.
+375:         self._draw_path(frame)
+376: 
+377:         # Object-specific start and target silhouettes.
+378:         self._draw_object_icon(
+379:             frame, self.start_point,
+380:             (255, 255, 255), scale=1.5,
+381:         )
+382:         self._draw_object_icon(
+383:             frame, self.target_center,
+384:             (0, 220, 0), scale=2.5,
+385:         )
+386:         self._draw_start_loading(frame)
+387: 
+388:         cv2.putText(
+389:             frame, "START",
+390:             (self.start_point[0] - 25,
+391:              self.start_point[1] - 48),
+392:             cv2.FONT_HERSHEY_SIMPLEX,
+393:             0.5, (255, 255, 255), 2,
+394:         )
+395:         cv2.putText(
+396:             frame, "TARGET",
+397:             (self.target_center[0] - 30,
+398:              self.target_center[1] - 48),
+399:             cv2.FONT_HERSHEY_SIMPLEX,
+400:             0.5, (0, 220, 0), 2,
+401:         )
+402: 
+403:         # Red: actual movement trace.
+404:         if len(self.actual_path) >= 2:
+405:             points = np.asarray(
+406:                 self.actual_path, dtype=np.int32
+407:             )
+408:             cv2.polylines(
+409:                 frame, [points], False, (0, 0, 255), 3
+410:             )
+411: 
+412:         if self.actual_path:
+413:             cv2.circle(
+414:                 frame, self.actual_path[-1],
+415:                 7, (0, 0, 255), -1,
+416:             )
+417: 
+418:         status = (
+419:             "ACTIVE" if self.attempt_active
+420:             else "COMPLETE" if self.attempt_completed
+421:             else "WAITING"
+422:         )
+423: 
+424:         cv2.putText(
+425:             frame,
+426:             f"{self.object_name.upper()} | {status} | "
+427:             f"Progress: {self.progress_fraction * 100:.0f}%",
+428:             (20, 32),
+429:             cv2.FONT_HERSHEY_SIMPLEX,
+430:             0.65, (255, 255, 255), 2,
+431:         )
+432: 
+433:         return frame

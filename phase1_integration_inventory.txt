@@ -1,0 +1,626 @@
+
+===========================================================================
+showcase_launcher.py
+===========================================================================
+
+IMPORTS:
+L3: import subprocess
+L4: import sys
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L23: def main
+
+INTEGRATION REFERENCES:
+L3: import subprocess
+L13: ["-m", "streamlit", "run",
+L18: ["-m", "streamlit", "run",
+L37: subprocess.Popen(
+L49: subprocess.run(
+
+===========================================================================
+src/platform_config/session_launcher.py
+===========================================================================
+
+IMPORTS:
+L5: import json
+L6: import os
+L7: import subprocess
+L8: import sys
+L10: from dataclasses import asdict
+L11: from pathlib import Path
+L13: from src.platform_config.object_library import list_objects
+L14: from src.platform_config.session_config import (
+    SessionConfig,
+    TRAJECTORY_PRESETS,
+)
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L20: def choose_option
+L39: def main
+
+INTEGRATION REFERENCES:
+L7: import subprocess
+L16: TRAJECTORY_PRESETS,
+L59: trajectory_index = choose_option(
+L60: "SELECT MOVEMENT TRAJECTORY",
+L61: TRAJECTORY_PRESETS,
+L64: trajectory = TRAJECTORY_PRESETS[trajectory_index]
+L86: trajectory=trajectory,
+L99: config_dir / f"{config.session_id}_session.json"
+L103: json.dumps(asdict(config), indent=2)
+L114: print("1–5: Change trajectory between attempts")
+L126: env["REHAB_SESSION_CONFIG"] = str(config_path)
+L130: result = subprocess.run(
+L144: "Automatic assessment export skipped."
+L148: print("\nGenerating clinician assessment...")
+L151: from src.assessment.export_unified_session import export_session
+L153: output_path = export_session(config.session_id)
+L155: print(f"Assessment export unavailable: {error}")
+L158: print(f"Assessment ready: {output_path}")
+
+===========================================================================
+src/capture/camera_capture.py
+===========================================================================
+
+IMPORTS:
+L1: import csv
+L2: import json
+L3: import cv2
+L4: from datetime import datetime
+L5: from pathlib import Path
+L6: from src.capture.video_playback import play_video
+L7: import mediapipe as mp
+L8: import time
+L9: import numpy as np
+L11: from src.grasp.grasp_features import (calculate_finger_spread, calculate_hand_aperture, calculate_thumb_index_distance, 
+                                    calculate_finger_angles,calculate_thumb_opposition, calculate_thumb_index_side_distance,
+                                    calculate_thumb_fingertip_distances, calculate_hand_center)
+L14: from src.grasp.grasp_classifier import (classify_pinch, detect_cylindrical_grasp, detect_hook_grasp, 
+                                        detect_large_aperture_palmar_grasp, detect_multidigit_precision_grasp, detect_pincer_grasp, detect_spherical_grasp,
+                                        detect_tip_pinch, detect_whole_hand_power_grip, detect_handle_grasp, detect_tripod_grasp,
+                                        detect_lateral_pinch)
+L18: from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks,log_no_hand_frame)
+L19: from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects)
+L20: from src.object_detection.hand_object_interaction import (find_nearest_object, is_hand_near_object, 
+                                                          count_fingertips_near_object, determine_interaction_state, InteractionStateTracker)
+L22: from src.tasks.task_config import get_task
+L23: from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects, filter_objects_by_class,)
+L24: from src.data.frame_record import create_frame_record
+L25: from src.data.interaction_logger import (create_interaction_logger, log_frame_record, log_no_hand_interaction,)
+L26: from src.object_detection.object_detection_tracker import (ObjectDetectionTracker)
+L27: from src.object_detection.object_tracker import (track_objects, ObjectIdentityTracker,)
+L28: from src.data.object_logger import (create_object_logger, log_detected_objects,)
+L29: from src.object_detection.object_movement_tracker import ObjectMovementTracker
+L30: from src.object_detection.duplicate_filter import filter_duplicate_objects
+L31: from src.object_detection.object_segmentation import ObjectSegmenter
+L32: from src.object_detection.geometry_association import attach_object_geometry
+L33: from src.object_detection.interaction_event_tracker import (InteractionEventTracker,)
+L34: from src.pose.pose_detector import UpperBodyPoseDetector
+L35: from src.assessment.posture_metrics import (
+    calculate_shoulder_elevation,
+    calculate_trunk_posture,
+)
+L39: from src.assessment.posture_calibration_controller import PostureCalibrationController
+L40: from src.pose.pose_logger import create_pose_logger, log_pose_frame
+L41: from src.pose.joint_angles import calculate_upper_body_angles
+L42: from src.assessment.game_trajectory import GameTrajectory
+L66: from src.platform_config.camera_bridge import load_camera_session
+L67: from src.assessment.posture_calibration_store import save_calibration
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+
+INTEGRATION REFERENCES:
+L27: from src.object_detection.object_tracker import (track_objects, ObjectIdentityTracker,)
+L35: from src.assessment.posture_metrics import (
+L39: from src.assessment.posture_calibration_controller import PostureCalibrationController
+L42: from src.assessment.game_trajectory import GameTrajectory
+L67: from src.assessment.posture_calibration_store import save_calibration
+L76: # Trajectory testing mode
+L79: TRAJECTORY_MODE_ENABLED = True
+L81: trajectory_assessment = GameTrajectory(
+L89: trajectory_assessment.set_preset(
+L90: SESSION_CONFIG.trajectory,
+L121: SESSION_ID = SESSION_CONFIG.session_id
+L125: # Trajectory session state
+L126: TRAJECTORY_TARGET_REPETITIONS = SESSION_CONFIG.target_repetitions
+L127: trajectory_successful_repetitions = 0
+L128: trajectory_attempt_history = []
+L129: trajectory_session_complete = False
+L130: trajectory_next_start_ready_at = 0.0
+L131: trajectory_attempt_start_ms = None
+L133: trajectory_results_path = (
+L135: / "trajectory_results"
+L136: / f"{SESSION_ID}_trajectory_results.json"
+L145: identity_tracker = ObjectIdentityTracker(
+L166: / f"{SESSION_ID}_object_data.csv"
+L177: pose_output_path = pose_output_dir / f"{SESSION_ID}_pose_landmarks.csv"
+L184: # Dedicated pre-task posture calibration controller.
+L185: posture_calibration = PostureCalibrationController()
+L192: camera = cv2.VideoCapture(CAMERA_INDEX)
+L214: fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+L216: writer = cv2.VideoWriter(
+L319: # Apply before detection, tracking, and trajectory rendering
+L328: # Collect dedicated posture calibration observations.
+L330: if posture_calibration.status == "RECORDING":
+L331: posture_calibration.add_frame(
+L424: # Whether the active trajectory object has a valid
+L426: trajectory_interaction_active = False
+L439: raw_detected_objects = track_objects(frame)
+L510: session_id=SESSION_ID,
+L561: if TRAJECTORY_MODE_ENABLED and not trajectory_session_complete:
+L562: trajectory_assessment.prepare_retry()
+L564: # Preserve the completed trajectory briefly
+L567: trajectory_assessment.outcome == "COMPLETED"
+L568: and time.monotonic() >= trajectory_next_start_ready_at
+L570: trajectory_assessment.reset()
+L575: TRAJECTORY_MODE_ENABLED
+L576: and not trajectory_session_complete
+L577: and not trajectory_assessment.attempt_active
+L578: and trajectory_assessment.outcome == "WAITING"
+L588: was_active = trajectory_assessment.attempt_active
+L590: trajectory_assessment.consider_start(
+L597: and trajectory_assessment.attempt_active
+L599: trajectory_attempt_start_ms = timestamp_ms
+L601: trajectory_assessment.clear_start_confirmation()
+L773: session_id=SESSION_ID,
+L1206: # Preliminary task-specific grasp assessment
+L1319: # Trajectory attempt control
+L1322: if TRAJECTORY_MODE_ENABLED and associated_object is not None:
+L1339: trajectory_assessment.attempt_active
+L1341: == trajectory_assessment.active_object_id
+L1343: trajectory_interaction_active = True
+L1449: session_id=SESSION_ID,
+L1742: TRAJECTORY_MODE_ENABLED
+L1743: and not trajectory_assessment.attempt_active
+L1744: and trajectory_assessment.outcome == "WAITING"
+L1746: candidate_id = trajectory_assessment.start_candidate_id
+L1755: trajectory_assessment.clear_start_confirmation()
+L1761: if TRAJECTORY_MODE_ENABLED and trajectory_assessment.attempt_active:
+L1763: trajectory_object = trajectory_assessment.recover_object(
+L1767: object_visible = trajectory_object is not None
+L1770: trajectory_center = trajectory_object.get("center")
+L1772: if trajectory_center is not None:
+L1773: trajectory_assessment.update(
+L1774: trajectory_center,
+L1775: object_id=trajectory_object.get("object_id"),
+L1779: attempt_ended = trajectory_assessment.update_attempt_state(
+L1780: interaction_active=trajectory_interaction_active,
+L1785: trajectory_metrics = trajectory_assessment.get_metrics()
+L1788: "\nTrajectory attempt ended:",
+L1789: trajectory_assessment.outcome,
+L1792: for metric_name, metric_value in trajectory_metrics.items():
+L1795: attempt_outcome = trajectory_assessment.outcome
+L1800: attempt_end_ms - trajectory_attempt_start_ms
+L1801: if trajectory_attempt_start_ms is not None
+L1806: "attempt_number": len(trajectory_attempt_history) + 1,
+L1809: "start_timestamp_ms": trajectory_attempt_start_ms,
+L1813: trajectory_assessment.progress_fraction * 100, 2
+L1815: "metrics": trajectory_metrics,
+L1816: "trajectory_points": [
+L1818: for point in trajectory_assessment.actual_path
+L1820: "trajectory_samples": [
+L1826: for sample in trajectory_assessment.trajectory_samples
+L1829: "trajectory_config": {
+L1831: trajectory_assessment,
+L1833: SESSION_CONFIG.trajectory,
+L1836: trajectory_assessment.start_point
+L1839: trajectory_assessment.target_center
+L1841: "target_radius": trajectory_assessment.target_radius,
+L1844: for point in trajectory_assessment.waypoints
+L1848: for point in trajectory_assessment.desired_path
+L1854: trajectory_attempt_history.append(attempt_record)
+L1857: trajectory_successful_repetitions += 1
+L1860: trajectory_successful_repetitions
+L1861: >= TRAJECTORY_TARGET_REPETITIONS
+L1863: trajectory_session_complete = True
+L1867: trajectory_successful_repetitions + 1
+L1869: trajectory_next_start_ready_at = (
+L1873: f"Repetition {trajectory_successful_repetitions}"
+L1874: f"/{TRAJECTORY_TARGET_REPETITIONS} complete"
+L1877: trajectory_results_path.parent.mkdir(
+L1882: "session_id": SESSION_ID,
+L1885: "trajectory": getattr(
+L1886: trajectory_assessment,
+L1888: SESSION_CONFIG.trajectory,
+L1890: "trajectory_config": {
+L1892: trajectory_assessment,
+L1894: SESSION_CONFIG.trajectory,
+L1897: trajectory_assessment.start_point
+L1900: trajectory_assessment.target_center
+L1902: "target_radius": trajectory_assessment.target_radius,
+L1905: for point in trajectory_assessment.waypoints
+L1909: for point in trajectory_assessment.desired_path
+L1913: "target_repetitions": TRAJECTORY_TARGET_REPETITIONS,
+L1915: trajectory_successful_repetitions,
+L1916: "session_complete": trajectory_session_complete,
+L1917: "attempts": trajectory_attempt_history,
+L1920: trajectory_results_path.write_text(
+L1921: json.dumps(session_results, indent=2, default=str)
+L1924: print("Results saved:", trajectory_results_path)
+L1925: trajectory_attempt_start_ms = None
+L1928: # Draw trajectory testing mode
+L1931: if TRAJECTORY_MODE_ENABLED:
+L1932: trajectory_assessment.draw(frame)
+L1934: if trajectory_session_complete:
+L1939: f"{TRAJECTORY_TARGET_REPETITIONS}"
+L1948: (0, 255, 0) if trajectory_session_complete
+L1976: # Live compensation-related posture feedback
+L1979: reference = posture_calibration.get_reference()
+L1993: feedback_lines = []
+L1994: feedback_color = (255, 255, 255)
+L1997: feedback_lines = ["Posture reference unavailable"]
+L1999: feedback_lines = ["Upper-body posture not detected"]
+L2010: feedback_lines = [
+L2017: feedback_lines.append("Keep your trunk steady")
+L2018: feedback_color = (0, 165, 255)
+L2020: feedback_lines.append("Reduce shoulder elevation")
+L2021: feedback_color = (0, 165, 255)
+L2023: feedback_lines.append("Posture within target range")
+L2024: feedback_color = (0, 200, 0)
+L2026: # Draw a readable background behind feedback.
+L2027: overlay_height = 35 + 30 * len(feedback_lines)
+L2047: for index, message in enumerate(feedback_lines):
+... 44 additional matching lines omitted
+
+===========================================================================
+src/object_detection/object_tracker.py
+===========================================================================
+
+IMPORTS:
+L1: import math
+L2: from src.object_detection.duplicate_filter import calculate_iou
+L4: from src.object_detection.yolo_detector import model
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L7: def track_objects
+L91: class ObjectIdentityTracker
+
+INTEGRATION REFERENCES:
+L7: def track_objects(frame, allowed_classes=None):
+L91: class ObjectIdentityTracker:
+
+===========================================================================
+src/assessment/posture_calibration_controller.py
+===========================================================================
+
+IMPORTS:
+L1: from src.assessment.posture_calibration_session import (
+    prepare_posture_calibration,
+)
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L6: class PostureCalibrationController
+
+INTEGRATION REFERENCES:
+L1: from src.assessment.posture_calibration_session import (
+L2: prepare_posture_calibration,
+L6: class PostureCalibrationController:
+L8: Manage a dedicated pre-task posture calibration.
+L10: Calibration frames must be supplied separately from
+L21: """Begin a new calibration recording."""
+L27: """Collect a pose observation during calibration."""
+L40: """Validate the collected calibration recording."""
+L45: self.result = prepare_posture_calibration(
+L58: """Return the reference only when calibration passed."""
+
+===========================================================================
+src/assessment/posture_calibration_store.py
+===========================================================================
+
+IMPORTS:
+L3: import json
+L4: from pathlib import Path
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L11: def calibration_path
+L25: def save_calibration
+L62: def load_calibration
+
+INTEGRATION REFERENCES:
+L1: """Persist session-specific posture calibration results."""
+L8: CALIBRATION_DIR = ROOT / "data" / "processed" / "posture_calibration"
+L11: def calibration_path(session_id):
+L12: session_id = str(session_id)
+L15: not session_id
+L16: or session_id in (".", "..")
+L17: or "/" in session_id
+L18: or chr(92) in session_id
+L22: return CALIBRATION_DIR / f"{session_id}_posture_calibration.json"
+L25: def save_calibration(session_id, result):
+L26: """Save calibration status and validated reference."""
+L29: raise TypeError("Calibration result must be a dictionary")
+L40: raise ValueError("READY calibration requires a reference")
+L43: "session_id": str(session_id),
+L46: "calibration_details": {
+L53: path = calibration_path(session_id)
+L57: json.dump(record, file, indent=2, allow_nan=False)
+L62: def load_calibration(session_id):
+L63: """Load a saved calibration, or return None if absent."""
+L65: path = calibration_path(session_id)
+L70: record = json.loads(path.read_text(encoding="utf-8"))
+L72: if str(record.get("session_id")) != str(session_id):
+L73: raise ValueError("Calibration session ID mismatch")
+
+===========================================================================
+src/assessment/export_unified_session.py
+===========================================================================
+
+IMPORTS:
+L3: import json
+L4: from src.assessment.posture_calibration_store import load_calibration
+L5: import sys
+L6: from pathlib import Path
+L8: from src.assessment.unified_session_assessment import (
+    build_unified_session_assessment,
+)
+L11: from src.assessment.trajectory_pose_adapter import (
+    load_pose_frames,
+)
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L18: def export_session
+
+INTEGRATION REFERENCES:
+L4: from src.assessment.posture_calibration_store import load_calibration
+L8: from src.assessment.unified_session_assessment import (
+L9: build_unified_session_assessment,
+L11: from src.assessment.trajectory_pose_adapter import (
+L18: def export_session(session_id):
+L19: trajectory_path = (
+L20: ROOT / "data" / "trajectory_results"
+L21: / f"{session_id}_trajectory_results.json"
+L25: / f"{session_id}_pose_landmarks.csv"
+L29: / f"{session_id}_unified_assessment_v02.json"
+L32: if not trajectory_path.is_file():
+L33: raise FileNotFoundError(trajectory_path)
+L39: session = json.loads(
+L40: trajectory_path.read_text(encoding="utf-8")
+L43: if str(session.get("session_id")) != str(session_id):
+L44: raise ValueError("Trajectory session ID mismatch")
+L48: calibration = load_calibration(session_id)
+L51: calibration_status = "UNAVAILABLE"
+L53: if calibration is not None:
+L54: calibration_status = calibration.get(
+L58: if calibration_status == "READY":
+L59: reference_posture = calibration.get(
+L65: "READY calibration has no valid reference"
+L68: assessment = build_unified_session_assessment(
+L74: assessment["posture_calibration"] = {
+L75: "status": calibration_status,
+L83: calibration.get("calibration_details", {}).get("reason")
+L84: if calibration is not None
+L85: else "No calibration record found"
+L88: calibration.get("calibration_details", {}).get("valid_frames")
+L89: if calibration is not None else None
+L92: calibration.get("calibration_details", {}).get("stability")
+L93: if calibration is not None else None
+L95: "assessment_baseline": (
+L103: "session_id", "task", "session_summary",
+L106: if not required.issubset(assessment):
+L107: raise ValueError("Unified assessment is incomplete")
+L112: for attempt in assessment["attempts"]
+L118: assessment["schema_version"] = "0.2"
+L123: json.dump(assessment, file, indent=2, allow_nan=False)
+L132: "src.assessment.export_unified_session SESSION_ID"
+L135: result = export_session(sys.argv[1])
+L136: print(f"Assessment exported: {result}")
+
+===========================================================================
+src/assessment/unified_session_assessment.py
+===========================================================================
+
+IMPORTS:
+L8: import math
+L10: from src.assessment.trajectory_session_analysis import (
+    analyse_trajectory_session,
+)
+L13: from src.assessment.trajectory_pose_adapter import (
+    assess_pose_for_attempts,
+)
+L16: from src.assessment.joint_quality_control import (
+    assess_joint_quality,
+)
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L21: def build_unified_session_assessment
+
+INTEGRATION REFERENCES:
+L2: Unified session assessment for the rehabilitation platform.
+L4: Combines existing trajectory and pose assessment outputs.
+L10: from src.assessment.trajectory_session_analysis import (
+L11: analyse_trajectory_session,
+L13: from src.assessment.trajectory_pose_adapter import (
+L16: from src.assessment.joint_quality_control import (
+L21: def build_unified_session_assessment(
+L26: trajectory = analyse_trajectory_session(session)
+L37: for index, trajectory_attempt in enumerate(
+L38: trajectory["attempt_assessments"]
+L47: trajectory_quality = trajectory_attempt.get(
+L51: trajectory_quality.get("quality_warnings", [])
+L70: warnings.append("Pose movement assessment unavailable")
+L153: **trajectory_attempt,
+L165: "session_id": session.get("session_id"),
+L169: "trajectory": session.get("trajectory"),
+L173: "total_attempts": trajectory["total_attempts"],
+L174: "completed_repetitions": trajectory["completed_repetitions"],
+L175: "interrupted_attempts": trajectory["interrupted_attempts"],
+L176: "other_unsuccessful_attempts": trajectory[
+L181: "consistency": trajectory["consistency"],
+L182: "observed_performance_change": trajectory[
+
+===========================================================================
+src/dashboard/clinician_session.py
+===========================================================================
+
+IMPORTS:
+L3: import json
+L4: from pathlib import Path
+L6: import pandas as pd
+L7: import plotly.express as px
+L8: import streamlit as st
+L10: from src.assessment.combined_assessment_summary import load_combined_session
+L11: from src.assessment.calibration_display import calibration_view
+L12: from src.dashboard.trajectory_visualization import (
+    render_trajectory_visualization,
+)
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L27: def load_session
+L32: def get_metric
+
+INTEGRATION REFERENCES:
+L1: """Read-only clinician session dashboard for rehabilitation assessments."""
+L8: import streamlit as st
+L10: from src.assessment.combined_assessment_summary import load_combined_session
+L11: from src.assessment.calibration_display import calibration_view
+L12: from src.dashboard.trajectory_visualization import (
+L13: render_trajectory_visualization,
+L29: return json.load(file)
+L33: """Read a metric from the unified trajectory assessment."""
+L39: st.caption("Upper-limb rehabilitation | Prototype assessment interface")
+L42: DATA_DIR.glob("*_unified_assessment_v02.json"),
+L47: st.warning("No version 0.2 unified session assessments were found.")
+L54: "_unified_assessment_v02.json", ""
+L75: f"**Trajectory:** {task.get('trajectory', 'Unknown')}"
+L81: # Posture calibration — showcase
+L84: st.subheader("Posture Calibration")
+L86: calibration = (
+L87: session.get("posture_calibration")
+L88: or session.get("calibration")
+L92: if not isinstance(calibration, dict):
+L93: calibration = {}
+L95: view = calibration_view(calibration)
+L99: cal1.metric("Calibration Status", view["status"])
+L108: st.success("Validated posture reference used for this assessment.")
+L111: "No validated calibration reference was used. Posture-change "
+L120: "Calibration was unsuccessful; a new calibration is recommended."
+L124: st.caption(f"Calibration note: {view['reason']}")
+L126: with st.expander("Calibration details"):
+L127: if calibration:
+L128: st.json(calibration)
+L130: st.write("No calibration data saved for this session.")
+L155: attempt, "mean_trajectory_deviation_px"
+L203: # Interactive trajectory review
+L206: st.subheader("Trajectory Review")
+L212: "Select attempt for trajectory review",
+L222: # Raw trajectory coordinates are stored separately from
+L223: # the unified assessment.
+L227: / "trajectory_results"
+L228: / f"{session['session_id']}_trajectory_results.json"
+L242: render_trajectory_visualization(
+L245: "trajectory",
+L246: task.get("trajectory"),
+L248: session_trajectory_config=raw_session.get(
+L249: "trajectory_config"
+L254: "No matching raw trajectory recording was found "
+L260: "Trajectory matching requires review."
+L264: "Original trajectory recording not found for this session."
+L267: st.info("No attempts are available for trajectory review.")
+L389: # Grasp and hand-object interaction assessment
+L392: st.subheader("Grasp and Hand-Object Interaction Assessment")
+L394: session_id = str(session.get("session_id") or "")
+L397: combined = load_combined_session(session_id)
+L531: with st.expander("View raw assessment data"):
+L538: "assessment scores and should not be used independently "
+
+===========================================================================
+src/dashboard/clinician_longitudinal.py
+===========================================================================
+
+IMPORTS:
+L3: import json
+L4: from datetime import datetime
+L5: from pathlib import Path
+L6: from statistics import mean
+L8: from src.assessment.combined_assessment_summary import load_combined_session
+L10: import pandas as pd
+L11: import plotly.express as px
+L12: import streamlit as st
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L27: def load_sessions
+L46: def session_datetime
+L53: def numeric_metric
+L62: def summarize_session
+
+INTEGRATION REFERENCES:
+L8: from src.assessment.combined_assessment_summary import load_combined_session
+L12: import streamlit as st
+L16: DATA_DIR = PROJECT_ROOT / "data/trajectory_results"
+L20: "mean_trajectory_deviation_px": "Mean Trajectory Deviation (px)",
+L30: for path in sorted(DATA_DIR.glob("*_trajectory_results.json")):
+L33: session = json.load(file)
+L46: def session_datetime(session_id):
+L48: return datetime.strptime(str(session_id), "%Y%m%d_%H%M%S")
+L76: "Session ID": session.get("session_id"),
+L77: "Date": session_datetime(session.get("session_id")),
+L80: "Trajectory": session.get("trajectory"),
+L126: st.warning("No trajectory session recordings were found.")
+L153: session.get("trajectory")
+L155: if session.get("trajectory") is not None
+L158: object_col, trajectory_col = st.columns(2)
+L162: "Assessment object",
+L166: with trajectory_col:
+L167: selected_trajectory = st.selectbox(
+L168: "Trajectory approach",
+L179: selected_trajectory == "All Trajectories"
+L180: or session.get("trajectory") == selected_trajectory
+L237: "mean_trajectory_deviation_px": "Mean Deviation (px)",
+L282: "trajectory. They describe task performance, not clinical recovery."
+L287: "mean_trajectory_deviation_px": "Mean Deviation (px)",
+L439: # Longitudinal grasp assessment
+L442: st.subheader("Longitudinal Grasp Assessment")
+L450: sid = str(recorded_session.get("session_id") or "")
+L465: "Trajectory": recorded_session.get("trajectory"),
+L511: id_vars=["Session", "Object", "Trajectory"],
+L528: hover_data=["Object", "Trajectory"],
+L559: "Differences across objects or trajectory configurations "
+L595: session_id = session.get("session_id")
+L603: trajectory_points = sum(
+L604: len(attempt.get("trajectory_points") or [])
+L609: len(attempt.get("trajectory_samples") or [])
+L622: / f"{session_id}_pose_landmarks.csv"
+L626: attempt.get("trajectory_config")
+L640: session_config = session.get("trajectory_config")
+L650: "Session": session_id,
+L652: "Trajectory Points": trajectory_points,
+L695: "trajectory coordinates. Comparisons of trajectory deviation "
+L704: "trajectory label; exact historical task equivalence "
+
+===========================================================================
+src/game_platform/delivery_dash.py
+===========================================================================
+
+IMPORTS:
+L3: import math
+L4: import time
+L6: import cv2
+L7: import numpy as np
+L9: from src.assessment.game_trajectory import GameTrajectory
+L10: from src.game_platform.world_scenery import WorldScenery
+L11: from src.game_platform.vertical_scenery import VerticalScenery
+L12: from src.game_platform.delivery_avatar import DeliveryAvatar
+
+ENTRY POINTS AND TOP-LEVEL CALLS:
+L15: class DeliveryDash
+
+INTEGRATION REFERENCES:
+L9: from src.assessment.game_trajectory import GameTrajectory
+L15: class DeliveryDash:
+L22: trajectory_preset="horizontal",
+L28: self.trajectory_preset = trajectory_preset
+L47: self.trajectory = GameTrajectory(
+L54: self.trajectory.set_preset(
+L55: self.trajectory_preset,
+L60: self.start = self.trajectory.start_point
+L61: self.destination = self.trajectory.target_center
+L68: self.trajectory.start_attempt(object_id=1)
+L84: self.trajectory.update(
+L92: self.trajectory.end_attempt(outcome="COMPLETED")
+L103: self.trajectory.reset()
+L104: self.trajectory.start_attempt(object_id=1)
+L118: if self.trajectory_preset == "vertical":
+L176: self.trajectory.draw(frame)
+L197: self.trajectory.reset()
+L198: self.trajectory.start_attempt(object_id=1)
+L212: DeliveryDash(target_repetitions=3).run()

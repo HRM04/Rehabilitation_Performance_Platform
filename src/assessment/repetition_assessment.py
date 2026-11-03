@@ -88,10 +88,15 @@ def create_repetition_assessment(
                     ),
 
                 "measurement_type": "trunk_movement",
-                "compensation_confirmed": False,
+                "compensation_confirmed": None,
+                "confirmation_status": "NOT_VALIDATED",
 
                 "shoulder_elevation": (
                     movement_metrics.get("shoulder_elevation")
+                ),
+
+                "shoulder_vertical_displacement": (
+                    movement_metrics.get("shoulder_vertical_displacement")
                 ),
 
                 "trunk_posture": (

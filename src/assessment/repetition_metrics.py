@@ -10,6 +10,7 @@ from src.assessment.movement_quality import (
 
 from src.assessment.posture_metrics import (
     calculate_shoulder_elevation,
+    calculate_shoulder_vertical_displacement,
     calculate_trunk_posture,
 )
 
@@ -222,6 +223,117 @@ def calculate_repetition_metrics(
         ),
     }
 
+
+    # -----------------------------------------
+    # Shoulder-only vertical displacement
+    # -----------------------------------------
+    # Independent of hip landmarks.
+    # Image-plane descriptor, not confirmed compensation.
+
+    shoulder_vertical_baseline = (
+        reference_posture.get("landmarks")
+        if isinstance(reference_posture, dict)
+        else None
+    )
+
+    shoulder_vertical_baseline_type = (
+        "calibrated_reference"
+        if shoulder_vertical_baseline is not None
+        else "first_valid_frame"
+    )
+
+    shoulder_vertical_values = {
+        "left": [],
+        "right": [],
+    }
+
+    shoulder_vertical_samples = {
+        "left": [],
+        "right": [],
+    }
+
+    for frame in repetition_frames:
+        landmarks = frame.get("landmarks")
+
+        if shoulder_vertical_baseline is None:
+            initial = calculate_shoulder_vertical_displacement(
+                landmarks,
+                landmarks,
+            )
+            if initial is not None:
+                shoulder_vertical_baseline = landmarks
+
+        displacement = (
+            calculate_shoulder_vertical_displacement(
+                shoulder_vertical_baseline,
+                landmarks,
+            )
+            if shoulder_vertical_baseline is not None
+            else None
+        )
+
+        for side in ("left", "right"):
+            value = (
+                displacement.get(
+                    f"{side}_vertical_displacement_norm"
+                )
+                if displacement is not None
+                else None
+            )
+
+            shoulder_vertical_samples[side].append({
+                "timestamp_ms": frame["timestamp_ms"],
+                "value": value,
+            })
+
+            if value is not None:
+                shoulder_vertical_values[side].append(value)
+
+    result["shoulder_vertical_displacement"] = {
+        "measurement_type": (
+            "absolute_image_plane_shoulder_vertical_displacement"
+        ),
+        "baseline_type": shoulder_vertical_baseline_type,
+        "compensation_confirmed": None,
+        "confirmation_status": "NOT_VALIDATED",
+        "limitations": [
+            "Shoulder movement may reflect trunk or whole-body movement",
+            "Camera movement can affect image-plane displacement",
+            "Not equivalent to shoulder elevation relative to hips",
+        ],
+    }
+
+    for side in ("left", "right"):
+        values = shoulder_vertical_values[side]
+        upward = [max(0.0, v) for v in values]
+
+        result["shoulder_vertical_displacement"][side] = {
+            "valid_frames": len(values),
+            "coverage_percent": (
+                round(
+                    100 * len(values) / len(repetition_frames),
+                    1,
+                )
+                if repetition_frames
+                else 0.0
+            ),
+            "maximum_upward_displacement_norm": (
+                max(upward) if upward else None
+            ),
+            "mean_upward_displacement_norm": (
+                sum(upward) / len(upward)
+                if upward else None
+            ),
+            "maximum_absolute_displacement_norm": (
+                max(map(abs, values))
+                if values else None
+            ),
+            "temporal_analysis": analyze_posture_deviations(
+                shoulder_vertical_samples[side],
+                threshold=0.03,
+            ),
+        }
+
     # -----------------------------------------
     # Shoulder elevation relative to baseline
     # -----------------------------------------
@@ -250,6 +362,11 @@ def calculate_repetition_metrics(
                 baseline_posture = landmarks
 
         if baseline_posture is None:
+            for side in ("left", "right"):
+                shoulder_samples[side].append({
+                    "timestamp_ms": frame["timestamp_ms"],
+                    "value": None,
+                })
             continue
 
         elevation = calculate_shoulder_elevation(
@@ -257,6 +374,11 @@ def calculate_repetition_metrics(
         )
 
         if elevation is None:
+            for side in ("left", "right"):
+                shoulder_samples[side].append({
+                    "timestamp_ms": frame["timestamp_ms"],
+                    "value": None,
+                })
             continue
 
         for side in ("left", "right"):
@@ -309,6 +431,7 @@ def calculate_repetition_metrics(
     lateral_shifts = []
     inclination_changes = []
     inclination_samples = []
+    lateral_samples = []
 
     for frame in repetition_frames:
         landmarks = frame.get("landmarks")
@@ -321,6 +444,11 @@ def calculate_repetition_metrics(
                 baseline_posture = landmarks
 
         if baseline_posture is None:
+            for target in (inclination_samples, lateral_samples):
+                target.append({
+                    "timestamp_ms": frame["timestamp_ms"],
+                    "value": None,
+                })
             continue
 
         posture = calculate_trunk_posture(
@@ -328,6 +456,11 @@ def calculate_repetition_metrics(
         )
 
         if posture is None:
+            for target in (inclination_samples, lateral_samples):
+                target.append({
+                    "timestamp_ms": frame["timestamp_ms"],
+                    "value": None,
+                })
             continue
 
         lateral_shifts.append(
@@ -340,6 +473,10 @@ def calculate_repetition_metrics(
         inclination_samples.append({
             "timestamp_ms": frame["timestamp_ms"],
             "value": posture["inclination_change_deg"],
+        })
+        lateral_samples.append({
+            "timestamp_ms": frame["timestamp_ms"],
+            "value": posture["lateral_shift_norm"],
         })
 
     result["trunk_posture"] = {
@@ -367,6 +504,12 @@ def calculate_repetition_metrics(
             if inclination_changes else None
         ),
 
+        "lateral_shift_temporal_analysis": (
+            analyze_posture_deviations(
+                lateral_samples,
+                threshold=0.03,
+            )
+        ),
         "signed_lateral_shifts_norm": lateral_shifts,
         "signed_inclination_changes_deg": inclination_changes,
 

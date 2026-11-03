@@ -90,6 +90,25 @@ def assess_functional_performance(
         "target_reached"
     )
 
+    if target_reached is True and repetition.get(
+        "ended_with_recording"
+    ) is True:
+        return {
+            "status": "INCOMPLETE",
+            "valid_attempt": True,
+            "completed": False,
+            "reason": (
+                "Target reached, but recording ended "
+                "without a confirmed repetition endpoint"
+            ),
+            "duration_ms": duration_ms,
+            "total_object_movement": total_object_movement,
+            "target_reached": True,
+            "final_target_error_px": trajectory_metrics.get(
+                "final_target_error_px"
+            ),
+        }
+
     if target_reached is True:
         return {
             "status": "COMPLETED",

@@ -10,6 +10,7 @@ Keeps the original assessment calculations while adding:
 """
 
 import math
+import random
 import time
 
 import cv2
@@ -29,6 +30,14 @@ class GameTrajectory(TrajectoryAssessment):
     ):
         super().__init__(*args, **kwargs)
         self.object_name = object_name
+
+        # Orientation targets are visual task instructions.
+        # Actual object orientation is not yet measured.
+        self.orientation_options = (0, 45, 90, 135)
+        self.orientation_rng = random.Random()
+        self.target_orientation_deg = None
+        self.orientation_assessment_status = "NOT_MEASURABLE"
+        self.randomize_target_orientation()
         self.grace_seconds = grace_seconds
         self.last_interaction_time = None
         self.progress_fraction = 0.0
@@ -48,9 +57,138 @@ class GameTrajectory(TrajectoryAssessment):
         self.retry_ready_at = 0.0
         self.completion_display_until = 0.0
         self.tracking_restored_until = 0.0
+        self.orientation_tolerance_deg = 15.0
+        self.orientation_required_frames = 3
+        self.orientation_checkpoint_fractions = (
+            0.0,
+            self.orientation_rng.uniform(0.40, 0.70),
+        )
+        self.orientation_checkpoints = []
+        self.next_orientation_checkpoint = 0
+        self.orientation_match_frames = 0
+        self.measured_orientation_deg = None
+        self.measured_orientation_reliable = False
+        self.orientation_events = []
+        self._configure_orientation_checkpoints()
+
+    orientation_enabled = False
+
+    def _configure_orientation_checkpoints(self):
+        self.orientation_checkpoint_fractions = (
+            0.0,
+            self.orientation_rng.uniform(0.40, 0.70),
+        )
+
+        targets = [
+            0,
+            self.orientation_rng.choice((45, 90, 135)),
+        ]
+
+        self.orientation_checkpoints = list(
+            zip(self.orientation_checkpoint_fractions, targets)
+        )
+        self.next_orientation_checkpoint = 0
+        self.orientation_match_frames = 0
+        self.measured_orientation_deg = None
+        self.measured_orientation_reliable = False
+        self.orientation_events = []
+        self.target_orientation_deg = targets[-1]
+
+    @staticmethod
+    def _axis_error_deg(measured, required):
+        return abs(
+            (float(measured) - float(required) + 90.0) % 180.0 - 90.0
+        )
+
+    def _required_orientation(self):
+        index = min(
+            self.next_orientation_checkpoint,
+            len(self.orientation_checkpoints) - 1
+        )
+        return self.orientation_checkpoints[index][1]
+
+    def _path_point_at(self, fraction):
+        path = self.desired_path
+        if not path:
+            return tuple(self.start_point)
+
+        lengths = [
+            math.dist(a, b)
+            for a, b in zip(path[:-1], path[1:])
+        ]
+        remaining = max(0.0, min(1.0, fraction)) * sum(lengths)
+
+        for (a, b), length in zip(
+            zip(path[:-1], path[1:]), lengths
+        ):
+            if length > 0 and remaining <= length:
+                t = remaining / length
+                return (
+                    int(a[0] + (b[0] - a[0]) * t),
+                    int(a[1] + (b[1] - a[1]) * t)
+                )
+            remaining -= length
+
+        return tuple(map(int, path[-1]))
+
+    def _check_orientation_checkpoint(self, distance, timestamp_ms):
+        if not self.orientation_enabled:
+            return
+
+        if self.next_orientation_checkpoint >= len(
+            self.orientation_checkpoints
+        ):
+            return
+
+        fraction, required = self.orientation_checkpoints[
+            self.next_orientation_checkpoint
+        ]
+
+        checkpoint_center = self._path_point_at(fraction)
+        current_center = self.last_seen_position
+
+        near_checkpoint = (
+            current_center is not None
+            and math.dist(
+                current_center, checkpoint_center
+            ) <= max(65, self.target_radius)
+            and distance <= max(40, self.target_radius)
+        )
+
+        matched = (
+            near_checkpoint
+            and self.measured_orientation_reliable
+            and self.measured_orientation_deg is not None
+            and self._axis_error_deg(
+                self.measured_orientation_deg, required
+            ) <= self.orientation_tolerance_deg
+        )
+
+        self.orientation_match_frames = (
+            self.orientation_match_frames + 1 if matched else 0
+        )
+
+        if self.orientation_match_frames >= self.orientation_required_frames:
+            self.orientation_events.append({
+                "checkpoint_index": self.next_orientation_checkpoint,
+                "path_fraction": fraction,
+                "required_axis_deg": required,
+                "measured_axis_deg": self.measured_orientation_deg,
+                "error_deg": round(
+                    self._axis_error_deg(
+                        self.measured_orientation_deg, required
+                    ), 2
+                ),
+                "timestamp_ms": timestamp_ms,
+                "status": "PASSED"
+            })
+
+            self.next_orientation_checkpoint += 1
+            self.orientation_match_frames = 0
 
     def reset(self):
         super().reset()
+        self._configure_orientation_checkpoints()
         self.last_interaction_time = None
         self.progress_fraction = 0.0
         self.clear_start_confirmation()
@@ -61,8 +199,9 @@ class GameTrajectory(TrajectoryAssessment):
         self.last_detection_time = None
         self.target_hold_since = None
 
-    def start_attempt(self, object_id=None):
+    def start_attempt(self, object_id=None, object_class=None):
         super().start_attempt(object_id=object_id)
+        self.active_object_class = object_class or self.object_name
         self.last_interaction_time = time.monotonic()
         self.progress_fraction = 0.0
         self.outcome = "ACTIVE"
@@ -81,6 +220,7 @@ class GameTrajectory(TrajectoryAssessment):
             outcome = (
                 "COMPLETED"
                 if self.target_reached()
+                and (not self.orientation_enabled or self.next_orientation_checkpoint == len(self.orientation_checkpoints))
                 and self.progress_fraction >= self.completion_progress_threshold
                 else "INCOMPLETE"
             )
@@ -126,6 +266,7 @@ class GameTrajectory(TrajectoryAssessment):
 
         qualified = (
             self.target_reached()
+            and (not self.orientation_enabled or self.next_orientation_checkpoint == len(self.orientation_checkpoints))
             and self.progress_fraction
             >= self.completion_progress_threshold
         )
@@ -144,34 +285,86 @@ class GameTrajectory(TrajectoryAssessment):
 
         return False
 
-    def recover_object(self, detections):
+    def recover_object(self, detections, contact_object_ids=None):
+        """
+        Keep following the active object.
+        1. Hand contact on an object of the active class (strongest evidence).
+        2. Visual re-acquisition after a loss: the same application ID
+           immediately, or one object of the active class seen on
+           several consecutive frames.
+        Other classes (person, chair, misdetections such as cake) never take over.
+        """
         if not self.attempt_active:
             return None
 
-        if self.last_seen_position is None:
+        contact_object_ids = set(contact_object_ids or [])
+        active_class = (
+            getattr(self, "active_object_class", None)
+            or getattr(self, "object_name", None)
+        )
+
+        def _cls(o):
+            return o.get("class_name", o.get("class"))
+
+        usable = [
+            o for o in detections
+            if o.get("center") is not None
+            and o.get("object_id") is not None
+            and _cls(o) not in {"person", "chair"}
+            and (active_class is None or _cls(o) == active_class)
+        ]
+        anchor = self.last_seen_position or self.start_point
+
+        def _nearest(objs):
+            return min(objs, key=lambda o: math.dist(o["center"], anchor))
+
+        selected, reason = None, None
+        contacted = [o for o in usable if o["object_id"] in contact_object_ids]
+        same_contact = [o for o in contacted if o["object_id"] == self.active_object_id]
+        if same_contact:
+            selected, reason = _nearest(same_contact), "contact"
+        elif len(contacted) == 1:
+            selected, reason = contacted[0], "contact"
+
+        if selected is not None:
+            self._reacq_id, self._reacq_count = None, 0
+        else:
+            near_px = getattr(self, "recovery_distance_px", 120)
+            same_id_near = [
+                o for o in usable
+                if o["object_id"] == self.active_object_id
+                and math.dist(o["center"], anchor) <= near_px
+            ]
+            if same_id_near:
+                selected, reason = _nearest(same_id_near), "same_id"
+                self._reacq_id, self._reacq_count = None, 0
+            else:
+                fresh = [o for o in usable if o.get("confidence", 1.0) >= 0.40]
+                if len(fresh) == 1:
+                    cid = fresh[0]["object_id"]
+                    if getattr(self, "_reacq_id", None) == cid:
+                        self._reacq_count += 1
+                    else:
+                        self._reacq_id, self._reacq_count = cid, 1
+                    near = math.dist(fresh[0]["center"], anchor) <= near_px
+                    need = 3 if near else 5
+                    if self._reacq_count >= need:
+                        selected = fresh[0]
+                        reason = "same_class_stable" if near else "same_class_far_stable"
+                else:
+                    self._reacq_id, self._reacq_count = None, 0
+
+        if selected is None:
             return None
 
-        candidates = []
-
-        for obj in detections:
-            center = obj.get("center")
-            if center is None:
-                continue
-
-            distance = math.dist(
-                center, self.last_seen_position
-            )
-
-            if distance <= self.recovery_distance_px:
-                candidates.append(obj)
-
-        if len(candidates) != 1:
-            return None
-
-        candidate = candidates[0]
-
-        self.active_object_id = candidate.get("object_id")
-        return candidate
+        old_id, new_id = self.active_object_id, selected["object_id"]
+        if new_id != old_id:
+            print("[TRAJECTORY OBJECT SWITCH]", "old_id=", old_id, "new_id=", new_id,
+                  "new_class=", _cls(selected), "reason=", reason)
+            self.active_object_id = new_id
+        if getattr(self, "outcome", None) == "TRACKING LOST":
+            print("[TRAJECTORY RECOVERED]", "id=", new_id, "reason=", reason)
+        return selected
 
     def prepare_retry(self):
         if self.attempt_active:
@@ -191,7 +384,7 @@ class GameTrajectory(TrajectoryAssessment):
         self.start_confirmation_progress = 0.0
         self.start_detection_count = 0
 
-    def consider_start(self, object_id, object_center):
+    def consider_start(self, object_id, object_center, object_class=None):
         if self.attempt_active or object_center is None:
             self.clear_start_confirmation()
             return False
@@ -201,6 +394,9 @@ class GameTrajectory(TrajectoryAssessment):
             return False
 
         now = time.monotonic()
+
+        if self.start_candidate_id != object_id:
+            self.clear_start_confirmation()
 
         if self.start_hold_since is None:
             self.start_hold_since = now
@@ -213,7 +409,10 @@ class GameTrajectory(TrajectoryAssessment):
         )
 
         if elapsed >= self.start_hold_seconds:
-            self.start_attempt(object_id=object_id)
+            self.start_attempt(
+                object_id=object_id,
+                object_class=object_class,
+            )
             return True
 
         return False
@@ -374,6 +573,21 @@ class GameTrajectory(TrajectoryAssessment):
             if now < self.go_display_until:
                 return "GO!", (0, 255, 0)
 
+            if (
+                self.orientation_enabled
+                and self.next_orientation_checkpoint < len(
+                    self.orientation_checkpoints
+                )
+            ):
+                fraction, angle = self.orientation_checkpoints[
+                    self.next_orientation_checkpoint
+                ]
+                if self.progress_fraction >= fraction - 0.01:
+                    return (
+                        f"MATCH {angle} DEG AXIS AT CHECKPOINT",
+                        (0, 191, 255)
+                    )
+
             if self.target_hold_since is not None:
                 progress = min(100, int(
                     100 * (now - self.target_hold_since)
@@ -473,13 +687,17 @@ class GameTrajectory(TrajectoryAssessment):
         )
         return fraction, best_distance
 
-    def update(self, object_center, object_id=None, timestamp_ms=None):
+    def update(
+        self, object_center, object_id=None, timestamp_ms=None,
+        orientation_deg=None, orientation_reliable=False
+    ):
+        # Keep actual movement data even while game progress is locked.
         before = len(self.actual_path)
 
         super().update(
             object_center,
             object_id=object_id,
-            timestamp_ms=timestamp_ms,
+            timestamp_ms=timestamp_ms
         )
 
         if len(self.actual_path) == before:
@@ -488,18 +706,39 @@ class GameTrajectory(TrajectoryAssessment):
         self.last_seen_position = self.actual_path[-1]
         self.last_detection_time = time.monotonic()
 
-        fraction, distance = self._project_to_path(
-            self.actual_path[-1]
+        self.measured_orientation_deg = (
+            float(orientation_deg)
+            if orientation_deg is not None else None
+        )
+        self.measured_orientation_reliable = bool(
+            orientation_reliable
+            and self.measured_orientation_deg is not None
         )
 
-        # Only advance progress when the object is close
-        # enough to the desired path.
-        tolerance_px = max(40, self.target_radius)
+        fraction, distance = self._project_to_path(
+            self.last_seen_position
+        )
 
-        if distance <= tolerance_px:
+        self._check_orientation_checkpoint(
+            distance, timestamp_ms
+        )
+
+        if (
+            self.orientation_enabled
+            and self.next_orientation_checkpoint < len(
+                self.orientation_checkpoints
+            )
+        ):
+            progress_cap = self.orientation_checkpoints[
+                self.next_orientation_checkpoint
+            ][0]
+        else:
+            progress_cap = 1.0
+
+        if distance <= max(40, self.target_radius):
             self.progress_fraction = max(
                 self.progress_fraction,
-                fraction,
+                min(fraction, progress_cap)
             )
 
     def _draw_path(self, frame):
@@ -560,6 +799,42 @@ class GameTrajectory(TrajectoryAssessment):
                         )
 
             travelled += length
+
+    def randomize_target_orientation(self):
+        # A new task gets one stable orientation assignment.
+        self.target_orientation_deg = self.orientation_rng.choice(
+            self.orientation_options
+        )
+        return self.target_orientation_deg
+
+    def _draw_rotated_object_icon(
+        self, frame, center, color, scale=1.0, angle_deg=0
+    ):
+        # Render the existing icon into a transparent working
+        # image, rotate it, then copy only its drawn pixels.
+        height, width = frame.shape[:2]
+        overlay = np.zeros_like(frame)
+
+        self._draw_object_icon(
+            overlay, center, color, scale=scale
+        )
+
+        matrix = cv2.getRotationMatrix2D(
+            tuple(map(float, center)),
+            float(angle_deg),
+            1.0,
+        )
+
+        rotated = cv2.warpAffine(
+            overlay,
+            matrix,
+            (width, height),
+            flags=cv2.INTER_NEAREST,
+            borderMode=cv2.BORDER_CONSTANT,
+        )
+
+        mask = np.any(rotated != 0, axis=2)
+        frame[mask] = rotated[mask]
 
     def _draw_object_icon(self, frame, center, color, scale=1.0):
         x, y = map(int, center)
@@ -649,22 +924,77 @@ class GameTrajectory(TrajectoryAssessment):
         # The starting silhouette follows accepted object
         # observations during an active repetition.
         # The prescribed target remains stationary.
-        moving_center = self.start_point
-        moving_color = (255, 255, 255)
-
-        if self.attempt_active and self.actual_path:
-            moving_center = self.actual_path[-1]
-
-            if self.outcome == "TRACKING LOST":
-                moving_color = (0, 165, 255)
-
-        self._draw_object_icon(
-            frame, moving_center,
-            moving_color, scale=2.5,
+        moving_center = (
+            tuple(map(int, self.last_seen_position))
+            if self.attempt_active
+            and self.last_seen_position is not None
+            else self._path_point_at(0.0)
         )
-        self._draw_object_icon(
+        moving_color = (
+            (0, 165, 255)
+            if self.outcome == "TRACKING LOST"
+            else (255, 255, 255)
+        )
+
+        self._draw_rotated_object_icon(
+            frame,
+            moving_center,
+            moving_color,
+            scale=2.5,
+            angle_deg=(
+                self._required_orientation()
+                if self.orientation_enabled else 0
+            )
+        )
+        # Draw the upcoming orientation checkpoint using the
+        # SAME target angle used by orientation verification.
+        if (
+            self.orientation_enabled
+            and self.next_orientation_checkpoint < len(
+                self.orientation_checkpoints
+            )
+        ):
+            checkpoint_fraction, checkpoint_angle = (
+                self.orientation_checkpoints[
+                    self.next_orientation_checkpoint
+                ]
+            )
+
+            # The initial 0-degree checkpoint is represented
+            # by the upright starting silhouette.
+            if checkpoint_fraction > 0:
+                checkpoint_center = self._path_point_at(
+                    checkpoint_fraction
+                )
+
+                self._draw_rotated_object_icon(
+                    frame,
+                    checkpoint_center,
+                    (0, 255, 255),
+                    scale=2.5,
+                    angle_deg=checkpoint_angle,
+                )
+
+                cv2.putText(
+                    frame,
+                    f"MATCH {checkpoint_angle} DEG",
+                    (
+                        checkpoint_center[0] - 85,
+                        checkpoint_center[1] - 95,
+                    ),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (0, 255, 255),
+                    2,
+                )
+
+        self._draw_rotated_object_icon(
             frame, self.target_center,
             (0, 220, 0), scale=3.5,
+            angle_deg=(
+                self.target_orientation_deg
+                if self.orientation_enabled else 0
+            ),
         )
         self._draw_start_loading(frame)
         self._draw_target_loading(frame)
@@ -773,6 +1103,37 @@ class GameTrajectory(TrajectoryAssessment):
             cv2.FONT_HERSHEY_SIMPLEX,
             0.65, (255, 255, 255), 2,
         )
+
+        if self.orientation_enabled:
+            cv2.putText(
+                frame,
+                f"Required axis: {self._required_orientation()} deg | "
+                f"Checkpoint {min(self.next_orientation_checkpoint + 1, len(self.orientation_checkpoints))}"
+                f"/{len(self.orientation_checkpoints)}",
+                (20, 62),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.62,
+                (0, 220, 0),
+                2,
+                cv2.LINE_AA,
+            )
+
+        if self.orientation_enabled:
+            cv2.putText(
+                frame,
+                (
+                    f"Measured axis: {self.measured_orientation_deg:.1f} deg | "
+                    f"Error: {self._axis_error_deg(self.measured_orientation_deg, self._required_orientation()):.1f} deg"
+                    if self.measured_orientation_reliable
+                    else "Measured axis: UNAVAILABLE - PROGRESS LOCKED"
+                ),
+                (20, 90),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.52,
+                (0, 191, 255),
+                2,
+                cv2.LINE_AA,
+            )
 
         self._draw_instruction(frame)
         return frame

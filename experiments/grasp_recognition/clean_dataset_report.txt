@@ -1,0 +1,27 @@
+DEDUPLICATED DATASET REPORT
+=======================================================
+Unique samples: 2206
+Recording groups: 39
+Subjects: [np.str_('S1')]
+
+CLASS COVERAGE
+-------------------------------------------------------
+Tripod                    samples= 462 recordings= 3 | CANDIDATE FOR GROUPED EVALUATION
+Inferior_Pincer           samples= 247 recordings= 3 | CANDIDATE FOR GROUPED EVALUATION
+Small_Diameter            samples= 235 recordings= 1 | TRAINING / EXPLORATORY ONLY
+Precision_Disk            samples= 206 recordings= 5 | CANDIDATE FOR GROUPED EVALUATION
+Adducted_Thumb            samples= 140 recordings= 2 | CANDIDATE FOR GROUPED EVALUATION
+Extension_Type            samples= 137 recordings= 4 | CANDIDATE FOR GROUPED EVALUATION
+Quadpod                   samples= 116 recordings= 1 | TRAINING / EXPLORATORY ONLY
+Large_Diameter            samples=  97 recordings= 3 | CANDIDATE FOR GROUPED EVALUATION
+Lateral                   samples=  77 recordings= 2 | CANDIDATE FOR GROUPED EVALUATION
+Distal                    samples=  70 recordings= 2 | CANDIDATE FOR GROUPED EVALUATION
+Parallel_Extension        samples=  68 recordings= 2 | CANDIDATE FOR GROUPED EVALUATION
+Ring                      samples=  68 recordings= 3 | CANDIDATE FOR GROUPED EVALUATION
+Sphere_3_Finger           samples=  68 recordings= 2 | CANDIDATE FOR GROUPED EVALUATION
+Palmar_Pinch              samples=  54 recordings= 1 | TRAINING / EXPLORATORY ONLY
+Lateral_Tripod            samples=  42 recordings= 1 | TRAINING / EXPLORATORY ONLY
+Precision_Sphere          samples=  37 recordings= 1 | TRAINING / EXPLORATORY ONLY
+Tip_Pinch                 samples=  37 recordings= 1 | TRAINING / EXPLORATORY ONLY
+Index_Finger_Extension    samples=  29 recordings= 1 | TRAINING / EXPLORATORY ONLY
+Palmar                    samples=  16 recordings= 1 | TRAINING / EXPLORATORY ONLY

@@ -1,0 +1,14 @@
+======== TESTS ========
+........................................................................ [ 76%]
+......................                                                   [100%]
+94 passed in 0.74s
+
+======== FILE LOCATIONS ========
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/src/preprocessing/hand_dedup.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/tests/test_hand_dedup.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/tests/test_repetition_relabel.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/pytest_hands_20261101_232334.txt
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/src/capture/camera_capture.py  [dedup import, dedup call]
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/src/assessment/repetition_analysis.py  [class var, class set, same class continuity, start-count class]
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/hands_20261101_232334/src/capture/camera_capture.py
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/hands_20261101_232334/src/assessment/repetition_analysis.py

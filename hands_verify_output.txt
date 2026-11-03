@@ -1,0 +1,23 @@
+
+====== E1 TWO DETECTIONS WITH THE SAME HAND LABEL IN ONE FRAME ======
+frame+hand groups: 65530 | with two different detections under one label: 4413 (6.7%)
+by label: {'Right': 2748, 'Left': 1665}
+distance between the two detections (px): p10 9 median 56 p90 483
+confidence of the stronger / weaker detection: median 0.995 / 0.981; weaker below 0.8 in 11% of cases
+detections <100 px apart (likely the same hand found twice): 2866 (65%) | >=300 px apart (likely two hands, one mislabelled): 874 (20%)
+
+====== E2 DIRECT OBJECT SWITCH IN GRASPING (no release in between) ======
+counts: {'object id changed while GRASPING': 259, 'same class': 259, 'grasp ended with a different object id': 64}
+sessions affected: 32 | worst: [('20261008_140845', 51), ('20261027_160132', 43), ('20261027_162744', 27)]
+(same class means the tracker re-labelled the same item; different class means a true object-to-object switch,
+ which the repetition logic would merge into one repetition.)
+
+====== E3 WHAT THE PARTIAL AND FULL CALIBRATIONS CONTAIN ======
+READY calibrations by mode: {'PARTIAL': 17, 'FULL': 14}
+   unavailable in PARTIAL: trunk_posture (17 sessions)
+   unavailable in PARTIAL: shoulder_elevation_relative_to_hips (17 sessions)
+   trunk_reference_available: {'PARTIAL/False': 17, 'FULL/True': 14}
+   shoulder_elevation_reference_available: {'PARTIAL/False': 17, 'FULL/True': 14}
+
+FILE LOCATIONS
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/verification_hands_20261101_232041.txt

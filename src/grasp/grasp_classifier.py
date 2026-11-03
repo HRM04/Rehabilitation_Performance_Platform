@@ -448,90 +448,64 @@ def detect_pincer_grasp(
     thumb_middle_distance
 ):
     """
-    Detect a thumb-index pincer / pad-to-pad pinch.
+    Detect a thumb-index pincer (pad-to-pad) configuration.
 
-    Initial rule-based heuristic.
-    Thresholds will be calibrated later.
+    Uses thumb-index proximity, index flexion, and separation
+    from tripod-like configurations.
+
+    Returns (detected, heuristic_score).
     """
+    required = ("index", "middle", "ring", "little")
 
-    index_angle = finger_angles.get("index")
-    middle_angle = finger_angles.get("middle")
-    ring_angle = finger_angles.get("ring")
-    little_angle = finger_angles.get("little")
-
-    if index_angle is None:
+    if any(finger_angles.get(name) is None for name in required):
         return False, 0.0
 
-    # Thumb and index should be close
-    thumb_index_close = thumb_index_distance < 0.55
-
-    # Thumb should be closer to index than middle finger
-    index_is_primary = (
-        thumb_index_distance < thumb_middle_distance
-    )
-
-    # Index should not be completely straight
-    index_engaged = index_angle < 165
-
-    # Count how many of the remaining fingers are strongly flexed
+    index_angle = finger_angles["index"]
     other_angles = [
-        middle_angle,
-        ring_angle,
-        little_angle
+        finger_angles["middle"],
+        finger_angles["ring"],
+        finger_angles["little"],
     ]
 
-    valid_other_angles = [
-        angle
-        for angle in other_angles
-        if angle is not None
-    ]
-
-    strongly_flexed_other_fingers = sum(
-        angle < 110
-        for angle in valid_other_angles
+    thumb_index_close = thumb_index_distance < 0.55
+    index_primary = (
+        thumb_index_distance + 0.10 < thumb_middle_distance
     )
 
-    # Pincer should primarily involve thumb + index,
-    # not all four fingers forming a power grasp
+    # Separate pad-to-pad pincer from the more extended
+    # index configuration used for tip pinch.
+    index_pad_configuration = 70 <= index_angle <= 120
+
+    # Avoid classifying a three-digit grasp as a two-digit pinch.
+    middle_not_participating = thumb_middle_distance >= 0.65
+
     other_fingers_not_dominant = (
-        strongly_flexed_other_fingers <= 2
+        sum(angle < 110 for angle in other_angles) <= 2
     )
 
     distance_score = max(
         0.0,
-        min(
-            1.0,
-            (0.875 - thumb_index_distance)
-            / (0.875 - 0.257)
-        )
+        min(1.0, (0.875 - thumb_index_distance) / 0.618)
     )
 
-    primary_digit_score = 1.0 if index_is_primary else 0.0
-    index_score = 1.0 if index_engaged else 0.0
-    isolation_score = (
-        1.0 if other_fingers_not_dominant else 0.0
+    score = 100.0 * (
+        0.40 * distance_score
+        + 0.20 * float(index_primary)
+        + 0.20 * float(index_pad_configuration)
+        + 0.10 * float(middle_not_participating)
+        + 0.10 * float(other_fingers_not_dominant)
     )
 
-    pincer_score = (
-        0.50 * distance_score
-        + 0.20 * primary_digit_score
-        + 0.15 * index_score
-        + 0.15 * isolation_score
-    )
-
-    confidence = pincer_score * 100
-
-    is_pincer = (
+    detected = (
         thumb_index_close
-        and index_is_primary
-        and index_engaged
+        and index_primary
+        and index_pad_configuration
+        and middle_not_participating
         and other_fingers_not_dominant
-        and confidence >= 60
+        and score >= 60
     )
 
-    return is_pincer, confidence
-
-
+    return detected, score
 
 
 def detect_tip_pinch(
@@ -540,87 +514,60 @@ def detect_tip_pinch(
     thumb_middle_distance
 ):
     """
-    Detect a thumb-index tip pinch.
+    Detect a thumb-index tip-pinch configuration.
 
-    Initial rule-based heuristic.
-    Thresholds will be calibrated later.
+    Uses fingertip proximity, relatively extended index
+    configuration, and exclusion of tripod-like patterns.
+
+    Returns (detected, heuristic_score).
     """
+    required = ("index", "middle", "ring", "little")
 
-    index_angle = finger_angles.get("index")
-    middle_angle = finger_angles.get("middle")
-    ring_angle = finger_angles.get("ring")
-    little_angle = finger_angles.get("little")
-
-    if index_angle is None:
+    if any(finger_angles.get(name) is None for name in required):
         return False, 0.0
 
-    # Thumb and index fingertips should be very close
-    fingertips_close = thumb_index_distance < 0.40
-
-    # Index should be the main finger interacting with the thumb
-    index_is_primary = (
-        thumb_index_distance < thumb_middle_distance
-    )
-
-    # Tip pinch generally keeps the index relatively extended
-    # compared with a more curled pincer configuration
-    index_relatively_extended = index_angle > 120
-
+    index_angle = finger_angles["index"]
     other_angles = [
-        middle_angle,
-        ring_angle,
-        little_angle
+        finger_angles["middle"],
+        finger_angles["ring"],
+        finger_angles["little"],
     ]
 
-    valid_other_angles = [
-        angle
-        for angle in other_angles
-        if angle is not None
-    ]
-
-    strongly_flexed_other_fingers = sum(
-        angle < 110
-        for angle in valid_other_angles
+    fingertips_close = thumb_index_distance < 0.40
+    index_primary = (
+        thumb_index_distance + 0.10 < thumb_middle_distance
     )
+
+    index_tip_configuration = index_angle > 120
+    middle_not_participating = thumb_middle_distance >= 0.65
 
     other_fingers_not_dominant = (
-        strongly_flexed_other_fingers <= 2
+        sum(angle < 110 for angle in other_angles) <= 2
     )
 
     distance_score = max(
         0.0,
-        min(
-            1.0,
-            (0.875 - thumb_index_distance)
-            / (0.875 - 0.257)
-        )
+        min(1.0, (0.875 - thumb_index_distance) / 0.618)
     )
 
-    primary_digit_score = 1.0 if index_is_primary else 0.0
-    extension_score = 1.0 if index_relatively_extended else 0.0
-    isolation_score = (
-        1.0 if other_fingers_not_dominant else 0.0
+    score = 100.0 * (
+        0.40 * distance_score
+        + 0.20 * float(index_primary)
+        + 0.20 * float(index_tip_configuration)
+        + 0.10 * float(middle_not_participating)
+        + 0.10 * float(other_fingers_not_dominant)
     )
 
-    tip_pinch_score = (
-        0.50 * distance_score
-        + 0.20 * primary_digit_score
-        + 0.15 * extension_score
-        + 0.15 * isolation_score
-    )
-
-    confidence = tip_pinch_score * 100
-
-    is_tip_pinch = (
+    detected = (
         fingertips_close
-        and index_is_primary
-        and index_relatively_extended
+        and index_primary
+        and index_tip_configuration
+        and middle_not_participating
         and other_fingers_not_dominant
-        and confidence >= 60
+        and score >= 60
     )
 
-    return is_tip_pinch, confidence
-
+    return detected, score
 
 
 def detect_tripod_grasp(

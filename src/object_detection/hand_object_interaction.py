@@ -142,6 +142,31 @@ def determine_interaction_state(
 
 
 
+PINCH_STATS = {"errors": 0}
+
+
+def pinch_contact_at_object(hand_data, detected_object, fingertip_count, family, margin=20):
+    """True when the thumb and at least one other fingertip are on the object, two or more
+    fingertips touch it, and the hand shape reads as a precision (fingertip) grasp.
+    Lets a pinch on a large object reach GRASPING when no exact grasp detector fires."""
+    if detected_object is None or family != "PRECISION" or (fingertip_count or 0) < 2:
+        return False
+    x1, y1, x2, y2 = detected_object["bounding_box"]
+
+    def inside(name):
+        p = hand_data[name]
+        return x1 - margin <= p["x_px"] <= x2 + margin and y1 - margin <= p["y_px"] <= y2 + margin
+
+    others = ("INDEX_FINGER_TIP", "MIDDLE_FINGER_TIP", "RING_FINGER_TIP", "PINKY_TIP")
+    return inside("THUMB_TIP") and any(inside(n) for n in others)
+
+
+def note_pinch_error(error):
+    PINCH_STATS["errors"] += 1
+    if PINCH_STATS["errors"] == 1:
+        print("[PINCH STATE] check unavailable:", repr(error))
+
+
 def calculate_object_movement(
     previous_center,
     current_center
@@ -202,3 +227,213 @@ class InteractionStateTracker:
         self.current_state = "NONE"
         self.candidate_state = "NONE"
         self.candidate_count = 0
+
+def distance_to_object_box(point, detected_object):
+    """Pixel distance from a point to an object's bounding box."""
+    x, y = point
+    x1, y1, x2, y2 = detected_object["bounding_box"]
+
+    dx = max(x1 - x, 0, x - x2)
+    dy = max(y1 - y, 0, y - y2)
+
+    return math.hypot(dx, dy)
+
+
+def select_hand_object_association(
+    hand_center,
+    hand_data,
+    detected_objects,
+    previous_object_id=None,
+    max_distance=50,
+    ambiguity_margin=5,
+):
+    """
+    Associate a hand with an observed object using geometric evidence.
+
+    Priority:
+      1. Plausible object proximity
+      2. Fingertip evidence
+      3. Object continuity
+      4. Bounding-box distance
+
+    Returns:
+        (object, "ASSOCIATED", diagnostics)
+        (None, "AMBIGUOUS", diagnostics)
+        (None, "NONE", diagnostics)
+
+    Scores and thresholds are engineering heuristics, not
+    calibrated probabilities or proof of physical contact.
+    """
+    candidates = []
+    objects_by_id = {}
+
+    for detected_object in detected_objects:
+        object_id = detected_object.get("object_id")
+
+        if object_id is None:
+            continue
+
+        objects_by_id.setdefault(object_id, []).append(
+            detected_object
+        )
+
+    # Conflicting detections sharing one identity cannot be
+    # safely interpreted as independent physical objects.
+    conflicting_ids = set()
+
+    for object_id, observations in objects_by_id.items():
+        if len(observations) <= 1:
+            continue
+
+        reference_box = observations[0]["bounding_box"]
+
+        if any(
+            item["bounding_box"] != reference_box
+            for item in observations[1:]
+        ):
+            conflicting_ids.add(object_id)
+
+    for object_id, observations in objects_by_id.items():
+        # Identical duplicate observations are counted once.
+        detected_object = observations[0]
+
+        distance = distance_to_object_box(
+            hand_center,
+            detected_object,
+        )
+
+        fingertips = count_fingertips_near_object(
+            hand_data,
+            detected_object,
+        )
+
+        if distance > max_distance and fingertips < 2:
+            continue
+
+        candidates.append({
+            "object": detected_object,
+            "object_id": object_id,
+            "distance_px": distance,
+            "fingertips": fingertips,
+            "conflicting_identity": (
+                object_id in conflicting_ids
+            ),
+        })
+
+    diagnostics = {
+        "candidates": [
+            {
+                "object_id": item["object_id"],
+                "distance_px": item["distance_px"],
+                "fingertips": item["fingertips"],
+                "conflicting_identity": (
+                    item["conflicting_identity"]
+                ),
+            }
+            for item in candidates
+        ]
+    }
+
+    if not candidates:
+        return None, "NONE", diagnostics
+
+    candidates.sort(
+        key=lambda item: (
+            -item["fingertips"],
+            item["distance_px"],
+        )
+    )
+
+    best = candidates[0]
+
+    if len(candidates) == 1:
+        if best["conflicting_identity"]:
+            return None, "AMBIGUOUS", diagnostics
+
+        return best["object"], "ASSOCIATED", diagnostics
+
+    second = candidates[1]
+
+    fingertip_difference = (
+        best["fingertips"] - second["fingertips"]
+    )
+
+    # Strong fingertip evidence overrides hand-centre proximity.
+    if (
+        best["fingertips"] >= 2
+        and fingertip_difference >= 2
+    ):
+        if best["conflicting_identity"]:
+            return None, "AMBIGUOUS", diagnostics
+
+        return best["object"], "ASSOCIATED", diagnostics
+
+    # If competing objects both have fingertip evidence,
+    # avoid an unsupported association unless continuity
+    # can distinguish them and the evidence is not strongly
+    # against the previously associated object.
+    if (
+        best["fingertips"] >= 2
+        and second["fingertips"] >= 2
+    ):
+        # Continuity can resolve an exact fingertip-evidence tie,
+        # but cannot override stronger evidence for another object.
+        if best["fingertips"] == second["fingertips"]:
+            tied_candidates = [
+                item for item in candidates
+                if item["fingertips"] == best["fingertips"]
+            ]
+
+            previous_matches = [
+                item for item in tied_candidates
+                if item["object_id"] == previous_object_id
+                and not item["conflicting_identity"]
+                and item["distance_px"] <= max_distance
+            ]
+
+            if len(previous_matches) == 1:
+                diagnostics["resolution"] = "CONTINUITY_TIE_BREAK"
+                return (
+                    previous_matches[0]["object"],
+                    "ASSOCIATED",
+                    diagnostics,
+                )
+
+        return None, "AMBIGUOUS", diagnostics
+
+    # Previous association can resolve otherwise weak evidence.
+    previous_candidates = [
+        item for item in candidates
+        if item["object_id"] == previous_object_id
+        and not item["conflicting_identity"]
+    ]
+
+    if previous_candidates:
+        previous = previous_candidates[0]
+
+        if (
+            best["fingertips"] - previous["fingertips"] <= 1
+            and previous["distance_px"] <= max_distance
+        ):
+            return previous["object"], "ASSOCIATED", diagnostics
+
+    # Resolve ties using geometric proximity only when the
+    # distance advantage is sufficiently clear.
+    if best["fingertips"] == second["fingertips"]:
+        distance_difference = (
+            second["distance_px"] - best["distance_px"]
+        )
+
+        if distance_difference <= ambiguity_margin:
+            return None, "AMBIGUOUS", diagnostics
+
+    if (
+        best["distance_px"] + 15
+        < second["distance_px"]
+    ):
+        if best["conflicting_identity"]:
+            return None, "AMBIGUOUS", diagnostics
+
+        return best["object"], "ASSOCIATED", diagnostics
+
+    return None, "AMBIGUOUS", diagnostics

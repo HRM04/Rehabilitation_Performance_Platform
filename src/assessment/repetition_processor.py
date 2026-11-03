@@ -1,3 +1,5 @@
+from src.assessment.grasp_quality import assess_grasp_quality
+
 from src.assessment.repetition_metrics import (
     calculate_repetition_metrics,
 )
@@ -17,6 +19,7 @@ def process_repetition(
     trajectory_assessment=None,
     grasp_assessment=None,
     reference_posture=None,
+    grasp_observations=None,
 ):
     """
     Process one completed rehabilitation repetition.
@@ -127,6 +130,29 @@ def process_repetition(
     # 5. Create unified repetition assessment
     # -------------------------------------------------
 
+    grasp_quality = None
+
+    if (
+        grasp_observations is not None
+        and start_timestamp_ms is not None
+        and end_timestamp_ms is not None
+    ):
+        matching_observations = [
+            observation
+            for observation in grasp_observations
+            if (
+                object_id is not None
+                and str(observation.get("object_id")) == str(object_id)
+            )
+        ]
+
+        grasp_quality = assess_grasp_quality(
+            observations=matching_observations,
+            start_timestamp_ms=start_timestamp_ms,
+            end_timestamp_ms=end_timestamp_ms,
+            require_object_association=True,
+        )
+
     assessment = create_repetition_assessment(
         repetition=repetition,
         movement_metrics=movement_metrics,
@@ -134,5 +160,7 @@ def process_repetition(
         grasp_assessment=grasp_assessment,
         trajectory_metrics=trajectory_metrics,
     )
+
+    assessment["grasp_quality"] = grasp_quality
 
     return assessment

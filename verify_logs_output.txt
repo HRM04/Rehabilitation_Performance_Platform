@@ -1,0 +1,62 @@
+
+====== V1 POSTURE CALIBRATION OUTCOMES ======
+sessions with a calibration file: 70 | status: {'UNAVAILABLE': 39, 'READY': 31}
+   UNAVAILABLE    Calibration was not completed                 39
+   READY          PARTIAL                                       17
+   READY          FULL                                          14
+interaction logs on disk: 211
+
+====== V2 TIMESTAMP ALIGNMENT ACROSS LOGS (per session) ======
+sessions with 2+ streams compared: 164 | start differs >2 s: 32 | end differs >2 s: 0
+   worst: 20261021_133255 start_diff=7192ms end_diff=0ms rows={'pose': 2496, 'objects': 923}
+   worst: 20260925_222112 start_diff=6340ms end_diff=0ms rows={'pose': 32, 'objects': 23, 'interactions': 31}
+   worst: 20260922_193330 start_diff=4591ms end_diff=800ms rows={'objects': 1, 'interactions': 35}
+   worst: 20261021_140731 start_diff=4809ms end_diff=0ms rows={'pose': 3488, 'objects': 1371}
+   worst: 20261008_113016 start_diff=4282ms end_diff=0ms rows={'pose': 6000, 'objects': 2759, 'interactions': 928}
+
+====== V3 FRAME RATE, GAPS AND DROPS (interaction logs) ======
+sessions analysed: 175 | rows/s: min 3.7 median 5.6 max 9.2
+frame gaps: median 166 ms, p95 233 ms, p99 263 ms, max 3212 ms
+gaps >500 ms: 216 | >1000 ms: 174 | >5000 ms: 0 | timestamps going backwards: 0 | duplicate frame+hand rows: 4446
+slowest 3 sessions: ['20261028_204859 3.7/s 53s', '20261028_194300 3.8/s 14s', '20261029_114917 3.9/s 26s']
+long sessions (>2 min): 19; second half more than 20% slower than first half: 0
+
+====== V4 HAND-LOSS BEHAVIOUR (interaction logs) ======
+rows: 119162 | rows with no hand: 49186 (41.3%)
+hand-loss runs: 1478 | median 0.63s | longest 3484.5s | runs >2 s: 438
+first state after a loss >2 s: {'NONE': 436, 'GRASPING': 2}
+events fired on first frame after a loss >2 s: none
+direct NONE->GRASPING jumps (no NEAR/CONTACT between): {'NONE->GRASPING': 836}
+
+====== V5 OBJECT IDENTITY AND DUPLICATES (object logs) ======
+identity_status counts: {'NEW': 3643, 'REASSOCIATED': 2671, 'AMBIGUOUS_NEW': 460, 'TRACK_CONTINUED': 267070}
+app-level objects: 4037 | objects that changed YOLO track id (re-linked): 749 | YOLO tracks shared by 2+ objects: 1073
+same-class box pairs with IoU >= 0.90 still present in logs: 0
+
+====== V6 EXPORT AND DASHBOARD AUDIT ======
+interaction columns written: 38 | never read by dashboards or analysis code: 4
+    hand_center_x, hand_center_y, association_resolution, association_candidate_count
+   column raw_grasp_type           in latest interaction log: False | used by dashboard: False
+   column appropriateness_reason   in latest interaction log: False | used by dashboard: False
+log files under 200 bytes (empty or header only): 39
+    /Users/pro/Documents/Projects/Rehabilitation Research/data/raw/pose/20261008_130912_pose_landmarks.csv
+    /Users/pro/Documents/Projects/Rehabilitation Research/data/raw/pose/20261027_162029_pose_landmarks.csv
+    /Users/pro/Documents/Projects/Rehabilitation Research/data/raw/pose/20261022_010410_pose_landmarks.csv
+    /Users/pro/Documents/Projects/Rehabilitation Research/data/raw/pose/20261021_125646_pose_landmarks.csv
+    /Users/pro/Documents/Projects/Rehabilitation Research/data/raw/pose/20261008_103635_pose_landmarks.csv
+latest session demo has 1 files across data/
+
+====== V7 LABEL COVERAGE (time-weighted, contact frames only) ======
+contact time analysed: 45.8 minutes
+   AMBIGUOUS               31.2% of contact time
+   lateral_pinch           18.1% of contact time
+   UNKNOWN                 12.8% of contact time
+   large_palmar            10.0% of contact time
+   none                     8.0% of contact time
+   multidigit_precision     7.8% of contact time
+   cylindrical              3.6% of contact time
+   spherical                3.3% of contact time
+appropriateness by time: {'INAPPROPRIATE': '34.3%', 'UNCERTAIN': '27.2%', 'NOT_ASSESSED': '24.0%', 'none': '8.0%', 'APPROPRIATE': '6.6%'}
+
+FILE LOCATIONS
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/verification_logs_20261101_230833.txt

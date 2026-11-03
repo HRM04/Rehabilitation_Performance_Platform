@@ -124,6 +124,9 @@ def create_clinician_summary(
 
         grasp = rep.get("grasp_assessment")
 
+        if grasp is None:
+            grasp = rep.get("grasp_quality")
+
         if grasp is not None:
             summary["grasp_summary"][
                 "available"

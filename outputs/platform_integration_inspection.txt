@@ -1,0 +1,687 @@
+
+=======================================================
+CAMERA — DEFINITIONS AND REFERENCES
+=======================================================
+62: SESSION_CONFIG, current_task = load_camera_session()
+63: CURRENT_TASK_ID = current_task["task_id"]
+64: CAMERA_INDEX = SESSION_CONFIG.camera_index
+65: WIDTH = SESSION_CONFIG.frame_width
+66: HEIGHT = SESSION_CONFIG.frame_height
+81:     SESSION_CONFIG.trajectory,
+82:     frame_width=SESSION_CONFIG.frame_width,
+83:     frame_height=SESSION_CONFIG.frame_height,
+112: SESSION_ID = SESSION_CONFIG.session_id
+367:         trajectory_interaction_active = False
+448:             task_id=CURRENT_TASK_ID,
+663:                 task_id=CURRENT_TASK_ID,
+1210:                             trajectory_assessment.start_attempt(
+1216:                             == trajectory_assessment.active_object_id
+1218:                             trajectory_interaction_active = True
+1327:                     task_id=CURRENT_TASK_ID,
+1621:                     == trajectory_assessment.active_object_id
+1644:             attempt_ended = trajectory_assessment.update_attempt_state(
+1645:                 interaction_active=trajectory_interaction_active,
+1646:                 grace_frames=10,
+
+=======================================================
+camera_capture.py: lines 35-85
+=======================================================
+35: from src.pose.joint_angles import calculate_upper_body_angles
+36: from src.assessment.trajectory_assessment import TrajectoryAssessment
+37: # -----------------------------
+38: # MediaPipe setup
+39: # -----------------------------
+40: 
+41: mp_hands = mp.solutions.hands
+42: mp_drawing = mp.solutions.drawing_utils
+43: 
+44: hands = mp_hands.Hands(
+45:     static_image_mode=False,
+46:     max_num_hands=2,
+47:     min_detection_confidence=0.5,
+48:     min_tracking_confidence=0.5
+49: )
+50: 
+51: # -----------------------------
+52: # Configuration
+53: # -----------------------------
+54: 
+55: CAMERA_INDEX = 0  # Updated below from session configuration
+56: WIDTH = 1280
+57: HEIGHT = 720
+58: FPS = 30
+59: 
+60: from src.platform_config.camera_bridge import load_camera_session
+61: 
+62: SESSION_CONFIG, current_task = load_camera_session()
+63: CURRENT_TASK_ID = current_task["task_id"]
+64: CAMERA_INDEX = SESSION_CONFIG.camera_index
+65: WIDTH = SESSION_CONFIG.frame_width
+66: HEIGHT = SESSION_CONFIG.frame_height
+67: 
+68: # -----------------------------
+69: # Trajectory testing mode
+70: # -----------------------------
+71: 
+72: TRAJECTORY_MODE_ENABLED = True
+73: 
+74: trajectory_assessment = TrajectoryAssessment(
+75:     start_point=(250, 400),
+76:     target_center=(1000, 400),
+77:     target_radius=70,
+78: )
+79: 
+80: trajectory_assessment.set_preset(
+81:     SESSION_CONFIG.trajectory,
+82:     frame_width=SESSION_CONFIG.frame_width,
+83:     frame_height=SESSION_CONFIG.frame_height,
+84: )
+85: 
+
+=======================================================
+camera_capture.py: lines 1080-1160
+=======================================================
+1080:                 # )
+1081: 
+1082:                 # -----------------------------------------
+1083:                 # Preliminary task-specific grasp assessment
+1084:                 # -----------------------------------------
+1085: 
+1086:                 associated_object_class = (
+1087:                     associated_object.get("class_name")
+1088:                     if associated_object is not None
+1089:                     else None
+1090:                 )
+1091: 
+1092:                 if (
+1093:                     associated_object is None
+1094:                     or not hand_near_object
+1095:                     or associated_object_class not in permitted_objects
+1096:                 ):
+1097:                     grasp_appropriateness = "NOT_ASSESSED"
+1098: 
+1099:                 elif detected_grasp_type in ("UNKNOWN", "AMBIGUOUS"):
+1100:                     grasp_appropriateness = "UNCERTAIN"
+1101: 
+1102:                 elif detected_grasp_type in expected_grasps:
+1103:                     grasp_appropriateness = "APPROPRIATE"
+1104: 
+1105:                 else:
+1106:                     grasp_appropriateness = "INAPPROPRIATE"
+1107: 
+1108:                 # cv2.putText(
+1109:                 #     frame,
+1110:                 #     f"{hand_label} appropriateness: {grasp_appropriateness}",
+1111:                 #     (20, 225 if hand_label == "Left" else 295),
+1112:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1113:                 #     0.55,
+1114:                 #     (255, 255, 255),
+1115:                 #     2,
+1116:                 # )
+1117: 
+1118:                 candidate_interaction_state = determine_interaction_state(
+1119:                     hand_near_object=hand_near_object,
+1120:                     fingertips_near_object=fingertip_count,
+1121:                     grasp_detected=grasp_detected
+1122:                 )
+1123: 
+1124:                 interaction_state = interaction_trackers[hand_label].update(
+1125:                     candidate_interaction_state
+1126:                 )
+1127: 
+1128:                 # Temporary diagnostic: report changes in the grasp state.
+1129:                 if interaction_state == "GRASPING":
+1130:                     print(
+1131:                         f"[GRASP DEBUG] "
+1132:                         f"Hand: {hand_label} | "
+1133:                         f"State: {interaction_state} | "
+1134:                         f"Object ID: "
+1135:                         f"{associated_object.get('object_id') if associated_object else None} | "
+1136:                         f"Grasp detected: {grasp_detected} | "
+1137:                         f"Fingertips near object: {fingertip_count} | "
+1138:                         f"Hand near object: {hand_near_object}"
+1139:                     )
+1140: 
+1141:                 # Generate temporal events for the associated hand-object pair.
+1142:                 interaction_event = None
+1143: 
+1144:                 if associated_object is not None:
+1145:                     association_missing_frames[hand_label] = 0
+1146: 
+1147:                     current_object_id = associated_object.get("object_id")
+1148:                     previous_object_id = last_associated_object_ids[hand_label]
+1149: 
+1150:                     # A different associated object starts a new observed
+1151:                     # interaction sequence for this hand.
+1152:                     if (
+1153:                         previous_object_id is not None
+1154:                         and previous_object_id != current_object_id
+1155:                     ):
+1156:                         interaction_event_tracker.mark_unobserved(hand_label)
+1157: 
+1158:                     if current_object_id is not None:
+1159:                         interaction_event = interaction_event_tracker.update(
+1160:                             hand_label=hand_label,
+
+=======================================================
+camera_capture.py: lines 1590-1695
+=======================================================
+1590:         #     frame,
+1591:         #     f"Permitted objects: {len(permitted_detected_objects)}",
+1592:         #     (30, 450),
+1593:         #     cv2.FONT_HERSHEY_SIMPLEX,
+1594:         #     0.6,
+1595:         #     (255, 255, 255),
+1596:         #     2
+1597:         # )
+1598: 
+1599:         # cv2.putText(
+1600:         #     frame,
+1601:         #     f"Irrelevant objects: {len(irrelevant_detected_objects)}",
+1602:         #     (30, 480),
+1603:         #     cv2.FONT_HERSHEY_SIMPLEX,
+1604:         #     0.6,
+1605:         #     (255, 255, 255),
+1606:         #     2
+1607:         # )
+1608: 
+1609:         # -------------------------------------------------
+1610:         # Record trajectory after hand-object interaction
+1611:         # -------------------------------------------------
+1612: 
+1613:         if TRAJECTORY_MODE_ENABLED and trajectory_assessment.attempt_active:
+1614: 
+1615:             trajectory_object = None
+1616: 
+1617:             for detected_object in permitted_detected_objects:
+1618: 
+1619:                 if (
+1620:                     detected_object.get("object_id")
+1621:                     == trajectory_assessment.active_object_id
+1622:                 ):
+1623:                     trajectory_object = detected_object
+1624:                     break
+1625: 
+1626:             if trajectory_object is not None:
+1627: 
+1628:                 trajectory_center = trajectory_object.get("center")
+1629: 
+1630:                 if trajectory_center is not None:
+1631: 
+1632:                     trajectory_assessment.update(
+1633:                         trajectory_center,
+1634:                         object_id=trajectory_object.get("object_id"),
+1635:                         timestamp_ms=timestamp_ms,
+1636:                     )
+1637: 
+1638:         # -------------------------------------------------
+1639:         # Update trajectory attempt once per camera frame
+1640:         # -------------------------------------------------
+1641: 
+1642:         if TRAJECTORY_MODE_ENABLED and trajectory_assessment.attempt_active:
+1643: 
+1644:             attempt_ended = trajectory_assessment.update_attempt_state(
+1645:                 interaction_active=trajectory_interaction_active,
+1646:                 grace_frames=10,
+1647:             )
+1648: 
+1649:             if attempt_ended:
+1650: 
+1651:                 trajectory_metrics = trajectory_assessment.get_metrics()
+1652: 
+1653:                 print("\nTrajectory attempt completed")
+1654: 
+1655:                 for metric_name, metric_value in trajectory_metrics.items():
+1656: 
+1657:                     print(f"{metric_name}: {metric_value}")
+1658: 
+1659:         # -------------------------------------------------
+1660:         # Draw trajectory testing mode
+1661:         # -------------------------------------------------
+1662: 
+1663:         if TRAJECTORY_MODE_ENABLED:
+1664:             trajectory_assessment.draw(frame)
+1665: 
+1666:         writer.write(frame)
+1667: 
+1668:         cv2.imshow("Camera Capture", frame)
+1669: 
+1670:         # -------------------------------------------------
+1671:         # Trajectory preset keyboard controls
+1672:         # -------------------------------------------------
+1673:         trajectory_presets = {
+1674:             ord("1"): "horizontal",
+1675:             ord("2"): "vertical",
+1676:             ord("3"): "diagonal",
+1677:             ord("4"): "curved",
+1678:             ord("5"): "s_shaped",
+1679:         }
+1680: 
+1681:         key = cv2.waitKey(1) & 0xFF
+1682: 
+1683:         if key in trajectory_presets:
+1684:             if not trajectory_assessment.attempt_active:
+1685:                 selected_preset = trajectory_presets[key]
+1686: 
+1687:                 trajectory_assessment.set_preset(
+1688:                     selected_preset,
+1689:                     frame_width=1280,
+1690:                     frame_height=720,
+1691:                 )
+1692: 
+1693:                 print(f"[TRAJECTORY] Selected: {selected_preset}")
+1694:             else:
+1695:                 print(
+
+=======================================================
+TRAJECTORY — DEFINITIONS AND REFERENCES
+=======================================================
+46:         self.active_object_id = None
+141:         self.active_object_id = None
+144:     def start_attempt(self, object_id=None):
+152:         self.active_object_id = object_id
+155:     def end_attempt(self):
+165:     def update_attempt_state(
+168:         grace_frames=10,
+188:         if self.inactive_frame_count >= grace_frames:
+189:             self.end_attempt()
+203:             self.active_object_id is not None
+204:             and object_id != self.active_object_id
+546:     def target_reached(self):
+660:     def get_metrics(self):
+682:                 self.target_reached(),
+685:     def draw(self, frame):
+857:         if self.active_object_id is not None:
+861:                 f"Object ID: {self.active_object_id}",
+
+=======================================================
+trajectory_assessment.py: lines 685-720
+=======================================================
+685:     def draw(self, frame):
+686:         """
+687:         Draw the desired trajectory, target region,
+688:         actual trajectory, and current object position.
+689:         """
+690: 
+691:         # ---------------------------------------------
+692:         # Desired trajectory
+693:         # ---------------------------------------------
+694: 
+695:         for index in range(
+696:             len(self.desired_path) - 1
+697:         ):
+698:             cv2.line(
+699:                 frame,
+700:                 self.desired_path[index],
+701:                 self.desired_path[index + 1],
+702:                 (255, 255, 0),
+703:                 3,
+704:             )
+705: 
+706:         # -------------------------------------------------
+707:         # Draw start position
+708:         # -------------------------------------------------
+709: 
+710:         start_x, start_y = self.start_point
+711: 
+712:         cv2.circle(
+713:             frame,
+714:             (start_x, start_y),
+715:             12,
+716:             (255, 255, 255),
+717:             2,
+718:         )
+719: 
+720:         cv2.putText(
+
+=======================================================
+trajectory_assessment.py: lines 775-960
+=======================================================
+775:                 self.target_center[1] - self.target_radius - 10,
+776:             ),
+777:             cv2.FONT_HERSHEY_SIMPLEX,
+778:             0.6,
+779:             (0, 255, 0),
+780:             2,
+781:         )
+782: 
+783:         # ---------------------------------------------
+784:         # Actual observed trajectory
+785:         # ---------------------------------------------
+786: 
+787:         if len(self.actual_path) >= 2:
+788: 
+789:             trajectory_points = np.asarray(
+790:                 self.actual_path,
+791:                 dtype=np.int32,
+792:             )
+793: 
+794:             cv2.polylines(
+795:                 frame,
+796:                 [trajectory_points],
+797:                 isClosed=False,
+798:                 color=(0, 0, 255),
+799:                 thickness=3,
+800:             )
+801: 
+802:         # ---------------------------------------------
+803:         # Current object position
+804:         # ---------------------------------------------
+805: 
+806:         if self.actual_path:
+807: 
+808:             current_position = (
+809:                 self.actual_path[-1]
+810:             )
+811: 
+812:             cv2.circle(
+813:                 frame,
+814:                 current_position,
+815:                 8,
+816:                 (0, 165, 255),
+817:                 -1,
+818:             )
+819: 
+820: 
+821:         # -------------------------------------------------
+822:         # Testing-mode status panel
+823:         # -------------------------------------------------
+824: 
+825:         panel_x = 20
+826:         panel_y = 30
+827: 
+828:         cv2.putText(
+829:             frame,
+830:             "TRAJECTORY TESTING MODE",
+831:             (panel_x, panel_y),
+832:             cv2.FONT_HERSHEY_SIMPLEX,
+833:             0.7,
+834:             (255, 255, 255),
+835:             2,
+836:         )
+837: 
+838:         if self.attempt_active:
+839:             status_text = "ACTIVE"
+840: 
+841:         elif self.attempt_completed:
+842:             status_text = "ATTEMPT COMPLETE"
+843: 
+844:         else:
+845:             status_text = "WAITING"
+846: 
+847:         cv2.putText(
+848:             frame,
+849:             f"Attempt: {status_text}",
+850:             (panel_x, panel_y + 30),
+851:             cv2.FONT_HERSHEY_SIMPLEX,
+852:             0.6,
+853:             (255, 255, 255),
+854:             2,
+855:         )
+856: 
+857:         if self.active_object_id is not None:
+858: 
+859:             cv2.putText(
+860:                 frame,
+861:                 f"Object ID: {self.active_object_id}",
+862:                 (panel_x, panel_y + 60),
+863:                 cv2.FONT_HERSHEY_SIMPLEX,
+864:                 0.6,
+865:                 (255, 255, 255),
+866:                 2,
+867:             )
+868: 
+869: 
+870:         if self.actual_path:
+871: 
+872:             metrics = self.get_metrics()
+873: 
+874:             efficiency = metrics.get(
+875:                 "movement_efficiency"
+876:             )
+877: 
+878:             deviation = metrics.get(
+879:                 "mean_trajectory_deviation_px"
+880:             )
+881: 
+882:             target_error = metrics.get(
+883:                 "final_target_error_px"
+884:             )
+885: 
+886:             target_reached = metrics.get(
+887:                 "target_reached"
+888:             )
+889: 
+890:             if efficiency is not None:
+891:                 efficiency_text = (
+892:                     f"{efficiency:.2f}"
+893:                 )
+894:             else:
+895:                 efficiency_text = "N/A"
+896: 
+897:             if deviation is not None:
+898:                 deviation_text = (
+899:                     f"{deviation:.1f} px"
+900:                 )
+901:             else:
+902:                 deviation_text = "N/A"
+903: 
+904:             if target_error is not None:
+905:                 target_error_text = (
+906:                     f"{target_error:.1f} px"
+907:                 )
+908:             else:
+909:                 target_error_text = "N/A"
+910: 
+911:             cv2.putText(
+912:                 frame,
+913:                 f"Efficiency: {efficiency_text}",
+914:                 (panel_x, panel_y + 90),
+915:                 cv2.FONT_HERSHEY_SIMPLEX,
+916:                 0.55,
+917:                 (255, 255, 255),
+918:                 2,
+919:             )
+920: 
+921:             cv2.putText(
+922:                 frame,
+923:                 f"Path deviation: {deviation_text}",
+924:                 (panel_x, panel_y + 115),
+925:                 cv2.FONT_HERSHEY_SIMPLEX,
+926:                 0.55,
+927:                 (255, 255, 255),
+928:                 2,
+929:             )
+930: 
+931:             cv2.putText(
+932:                 frame,
+933:                 f"Target error: {target_error_text}",
+934:                 (panel_x, panel_y + 140),
+935:                 cv2.FONT_HERSHEY_SIMPLEX,
+936:                 0.55,
+937:                 (255, 255, 255),
+938:                 2,
+939:             )
+940: 
+941:             target_text = (
+942:                 "YES"
+943:                 if target_reached
+944:                 else "NO"
+945:             )
+946: 
+947:             cv2.putText(
+948:                 frame,
+949:                 f"Target reached: {target_text}",
+950:                 (panel_x, panel_y + 165),
+951:                 cv2.FONT_HERSHEY_SIMPLEX,
+952:                 0.55,
+953:                 (255, 255, 255),
+954:                 2,
+955:             )
+956: 
+957:         return frame
+958: 
+959:     
+
+=======================================================
+EVENTS — DEFINITIONS AND REFERENCES
+=======================================================
+
+=======================================================
+interaction_event_tracker.py: lines 1-155
+=======================================================
+1: class InteractionEventTracker:
+2:     """
+3:     Track temporal interaction events separately for each
+4:     hand-object pair.
+5: 
+6:     Events:
+7:         GRASP
+8:         REGRASP
+9:         MANIPULATION
+10:         TRANSPORT
+11:         RELEASE
+12: 
+13:     Movement thresholds are provisional and should be
+14:     validated later.
+15:     """
+16: 
+17:     def __init__(
+18:         self,
+19:         manipulation_threshold=2.0,
+20:         transport_threshold=10.0,
+21:     ):
+22:         self.manipulation_threshold = manipulation_threshold
+23:         self.transport_threshold = transport_threshold
+24: 
+25:         self.pair_history = {}
+26: 
+27:     def update(
+28:         self,
+29:         hand_label,
+30:         object_id,
+31:         interaction_state,
+32:         object_movement=0.0,
+33:         timestamp_ms=None,
+34:     ):
+35:         """
+36:         Update one hand-object pair.
+37: 
+38:         Returns:
+39:             event_type or None
+40:         """
+41: 
+42:         if object_id is None:
+43:             return None
+44: 
+45:         pair_key = (hand_label, object_id)
+46: 
+47:         if pair_key not in self.pair_history:
+48:             self.pair_history[pair_key] = {
+49:                 "previous_state": "NONE",
+50:                 "has_grasped_before": False,
+51:                 "last_event": None,
+52:                 "last_timestamp_ms": None,
+53:                 "movement_state": "NONE",
+54:                 "grasp_start_ms": None,
+55:                 "last_grasp_duration_ms": None,
+56:             }
+57: 
+58:         history = self.pair_history[pair_key]
+59: 
+60:         previous_state = history["previous_state"]
+61: 
+62:         event_type = None
+63: 
+64:         history["last_grasp_duration_ms"] = None
+65: 
+66:         # -----------------------------------------
+67:         # GRASP / REGRASP
+68:         # -----------------------------------------
+69:         if (
+70:             previous_state != "GRASPING"
+71:             and interaction_state == "GRASPING"
+72:         ):
+73:             history["grasp_start_ms"] = timestamp_ms
+74: 
+75:             if history["has_grasped_before"]:
+76:                 event_type = "REGRASP"
+77:             else:
+78:                 event_type = "GRASP"
+79:                 history["has_grasped_before"] = True
+80: 
+81:         # -----------------------------------------
+82:         # RELEASE
+83:         # -----------------------------------------
+84:         elif (
+85:             previous_state == "GRASPING"
+86:             and interaction_state != "GRASPING"
+87:         ):
+88:             event_type = "RELEASE"
+89: 
+90:             grasp_start_ms = history["grasp_start_ms"]
+91: 
+92:             if timestamp_ms is not None and grasp_start_ms is not None:
+93:                 history["last_grasp_duration_ms"] = max(
+94:                     0,
+95:                     timestamp_ms - grasp_start_ms,
+96:                 )
+97: 
+98:             history["grasp_start_ms"] = None
+99: 
+100:         # -----------------------------------------
+101:         # MOVEMENT WHILE GRASPING
+102:         # -----------------------------------------
+103:         elif interaction_state == "GRASPING":
+104: 
+105:             if object_movement >= self.transport_threshold:
+106:                 new_movement_state = "TRANSPORT"
+107: 
+108:             elif object_movement >= self.manipulation_threshold:
+109:                 new_movement_state = "MANIPULATION"
+110: 
+111:             else:
+112:                 new_movement_state = "HOLDING"
+113: 
+114:             # Record an event only when the movement category changes.
+115:             if new_movement_state != history["movement_state"]:
+116: 
+117:                 if new_movement_state in (
+118:                     "HOLDING",
+119:                     "MANIPULATION",
+120:                     "TRANSPORT",
+121:                 ):
+122:                     event_type = new_movement_state
+123: 
+124:                 history["movement_state"] = new_movement_state
+125: 
+126:                 # Reset movement state when grasping ends.
+127:         if interaction_state != "GRASPING":
+128:             history["movement_state"] = "NONE"
+129: 
+130:         # Save the latest interaction state and event.
+131:         history["previous_state"] = interaction_state
+132:         history["last_event"] = event_type
+133:         history["last_timestamp_ms"] = timestamp_ms
+134: 
+135:         return event_type
+136: 
+137: 
+138: 
+139: 
+140:     def mark_unobserved(self, hand_label):
+141:         """
+142:         Clear active event histories for a hand when its
+143:         hand-object interaction cannot be observed.
+144: 
+145:         Missing detection is not evidence of physical release.
+146:         """
+147: 
+148:         keys_to_remove = [
+149:             pair_key
+150:             for pair_key in self.pair_history
+151:             if pair_key[0] == hand_label
+152:         ]
+153: 
+154:         for pair_key in keys_to_remove:
+155:             del self.pair_history[pair_key]

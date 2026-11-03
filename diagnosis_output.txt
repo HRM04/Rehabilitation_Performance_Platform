@@ -1,0 +1,37 @@
+
+====== D1 WHY CALIBRATION IS 'NOT COMPLETED' ======
+In the code, 'Calibration was not completed' is written when the session ends with no calibration result,
+meaning C was never pressed or V was never pressed. A rejected attempt is saved with its own status, and none appear.
+    20 sessions: no interaction log | no task rows | pose present
+    15 sessions: has interaction log | task rows | pose present
+     3 sessions: no interaction log | no task rows | pose empty
+     1 sessions: has interaction log | no task rows | pose empty
+by day (not completed / all with a calibration file): {'20261027': '4/13', '20261028': '25/34', '20261029': '10/23'}
+empty pose logs: 5 | of those, calibration not completed: 4 | not completed sessions with pose present: 35
+PARTIAL calibrations: 17
+   example details keys: ['calibration_mode', 'method', 'reference_type', 'shoulder_elevation_reference_available', 'stability', 'status', 'total_frames', 'trunk_reference_available', 'unavailable_measurements', 'valid_frames']
+   example valid_frames: 56
+
+====== D2 NONE -> GRASPING JUMPS (contiguous frames of the same hand only) ======
+jumps: {'contiguous': 778, 'after a gap >500 ms': 58}
+object id on the previous vs current row: {'same object id': 728, 'different/new object id': 50}
+   example: session 20260925_205702 t=17879ms class=bottle object_id=9 previous_object_id=9
+   example: session 20260925_205702 t=21744ms class=bottle object_id=18 previous_object_id=18
+   example: session 20260925_205702 t=58365ms class=bottle object_id=30 previous_object_id=30
+(the state tracker needs 3 consecutive frames of a new candidate state, so NEAR and CONTACT can be skipped by design.)
+
+====== D3 RETURNS FROM LONG HAND LOSS INTO GRASPING ======
+   session 20260922_200848: hand back after 11.0s in state GRASPING, object=bottle event=none
+   session 20260922_165004: hand back after 12.5s in state GRASPING, object=bottle event=none
+
+====== D4 OBJECT IDENTITY: POSSIBLE WRONG MERGES ======
+objects: 4103 | objects whose class changed over their life: 0 | centre jumps >300 px within 0.5 s: 0
+
+====== D5 DUPLICATE FRAME+HAND ROWS ======
+rows sharing a frame and hand: {'same object repeated': 3679, 'different objects (one row per hand-object pair)': 734}
+
+====== D6 WHICH LOG STARTS LATE (sessions where starts differ >2 s) ======
+sessions with start offset >2 s: 32 | log that starts last: {'pose': 30, 'objects': 2}
+
+FILE LOCATIONS
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/diagnosis_20261101_231633.txt

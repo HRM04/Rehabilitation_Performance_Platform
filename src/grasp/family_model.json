@@ -1,0 +1,53 @@
+{
+ "enabled": true,
+ "depth": 1,
+ "held_out_family_accuracy": 0.801,
+ "features": [
+  "angle_index",
+  "angle_little",
+  "angle_middle",
+  "angle_ring",
+  "aperture",
+  "side_dist",
+  "thumb_index",
+  "thumb_middle",
+  "thumb_to_index",
+  "thumb_to_little",
+  "thumb_to_middle",
+  "thumb_to_ring"
+ ],
+ "medians": [
+  137.43664824681017,
+  141.0816710953478,
+  128.26398878588063,
+  128.2374018046475,
+  0.8367797270463809,
+  0.5172144205836707,
+  0.27752576086771746,
+  0.5544982882755272,
+  0.27752576086771746,
+  0.8367797270463809,
+  0.5544982882755272,
+  0.6844392030658528
+ ],
+ "tree": {
+  "feat": "thumb_index",
+  "thr": 0.236,
+  "n": 2442,
+  "le": {
+   "leaf": "PRECISION",
+   "n": 1099
+  },
+  "gt": {
+   "leaf": "POWER",
+   "n": 1343
+  }
+ },
+ "fitted_on": [
+  "grasp_labels_20261101_233222.csv",
+  "grasp_labels_20261101_235014.csv",
+  "grasp_labels_20261101_235053.csv",
+  "grasp_labels_20261101_235516.csv"
+ ],
+ "note": "one rule: thumb_index <= 0.236 is PRECISION, otherwise POWER. fitted on recordings from one person."
+}

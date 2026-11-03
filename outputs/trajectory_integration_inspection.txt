@@ -1,0 +1,180 @@
+1198:                     transport_states = {
+1199:                         "GRASPING",
+1200:                         "HOLDING",
+1201:                         "MANIPULATION",
+1202:                         "TRANSPORT",
+1203:                     }
+1204: 
+1205:                     if (
+1206:                         current_object_id is not None
+1207:                         and interaction_state in transport_states
+1208:                     ):
+1209: 
+1210:                         if not trajectory_assessment.attempt_active:
+1211: 
+1212:                             trajectory_assessment.consider_start(
+1213:                                 object_id=current_object_id,
+1214:                                 object_center=associated_object.get("center"),
+1215:                             )
+1216: 
+1217:                         if (
+1218:                             trajectory_assessment.attempt_active
+1219:                             and current_object_id
+1220:                             == trajectory_assessment.active_object_id
+1221:                         ):
+1222:                             trajectory_interaction_active = True
+1223: 
+1224:                     
+1225:                    
+1226: 
+1227:                 # Remember the latest detected event for the video overlay.
+1228:                 # This does not affect event detection or CSV logging.
+1229:                 if interaction_event is not None:
+1230:                     display_events[hand_label] = interaction_event
+1231: 
+1232:                 # Duration is available only when an observed release occurs.
+1233:                 grasp_duration_ms = None
+1234: 
+1235:                 if interaction_event == "RELEASE":
+1236:                     object_id = (
+1237:                         associated_object.get("object_id")
+1238:                         if associated_object is not None
+1239:                         else None
+1240:                     )
+1241: 
+1242:                     if object_id is not None:
+1243:                         history = interaction_event_tracker.pair_history.get(
+1244:                             (hand_label, object_id)
+1245:                         )
+1246: 
+1247:                         if history is not None:
+1605:         #     f"Irrelevant objects: {len(irrelevant_detected_objects)}",
+1606:         #     (30, 480),
+1607:         #     cv2.FONT_HERSHEY_SIMPLEX,
+1608:         #     0.6,
+1609:         #     (255, 255, 255),
+1610:         #     2
+1611:         # )
+1612: 
+1613:         # Reset start confirmation when the candidate
+1614:         # object disappears or leaves the start region.
+1615:         if (
+1616:             TRAJECTORY_MODE_ENABLED
+1617:             and not trajectory_assessment.attempt_active
+1618:         ):
+1619:             candidate_id = trajectory_assessment.start_candidate_id
+1620: 
+1621:             if candidate_id is not None:
+1622:                 candidate_visible = any(
+1623:                     obj.get("object_id") == candidate_id
+1624:                     for obj in permitted_detected_objects
+1625:                 )
+1626: 
+1627:                 if not candidate_visible:
+1628:                     trajectory_assessment.clear_start_confirmation()
+1629: 
+1630:         # -------------------------------------------------
+1631:         # Record trajectory after hand-object interaction
+1632:         # -------------------------------------------------
+1633: 
+1634:         if TRAJECTORY_MODE_ENABLED and trajectory_assessment.attempt_active:
+1635: 
+1636:             trajectory_object = None
+1637: 
+1638:             for detected_object in permitted_detected_objects:
+1639: 
+1640:                 if (
+1641:                     detected_object.get("object_id")
+1642:                     == trajectory_assessment.active_object_id
+1643:                 ):
+1644:                     trajectory_object = detected_object
+1645:                     break
+1646: 
+1647:             if trajectory_object is not None:
+1648: 
+1649:                 trajectory_center = trajectory_object.get("center")
+1650: 
+1651:                 if trajectory_center is not None:
+1652: 
+1653:                     trajectory_assessment.update(
+1654:                         trajectory_center,
+1655:                         object_id=trajectory_object.get("object_id"),
+1656:                         timestamp_ms=timestamp_ms,
+1657:                     )
+1658: 
+1659:         # -------------------------------------------------
+1660:         # Update trajectory attempt once per camera frame
+1661:         # -------------------------------------------------
+1662: 
+1663:         if TRAJECTORY_MODE_ENABLED and trajectory_assessment.attempt_active:
+1664: 
+1665:             attempt_ended = trajectory_assessment.update_attempt_state(
+1666:                 interaction_active=trajectory_interaction_active,
+1667:                 grace_frames=10,
+1668:             )
+1669: 
+1670:             if attempt_ended:
+1671: 
+1672:                 trajectory_metrics = trajectory_assessment.get_metrics()
+1673: 
+1674:                 print("\nTrajectory attempt completed")
+1675: 
+1676:                 for metric_name, metric_value in trajectory_metrics.items():
+1677: 
+1678:                     print(f"{metric_name}: {metric_value}")
+1679: 
+1680:         # -------------------------------------------------
+1681:         # Draw trajectory testing mode
+1682:         # -------------------------------------------------
+1683: 
+1684:         if TRAJECTORY_MODE_ENABLED:
+1685:             trajectory_assessment.draw(frame)
+1686: 
+1687:         writer.write(frame)
+1688: 
+1689:         cv2.imshow("Camera Capture", frame)
+1690: 
+1691:         # -------------------------------------------------
+1692:         # Trajectory preset keyboard controls
+1693:         # -------------------------------------------------
+1694:         trajectory_presets = {
+1695:             ord("1"): "horizontal",
+1696:             ord("2"): "vertical",
+1697:             ord("3"): "diagonal",
+1698:             ord("4"): "curved",
+1699:             ord("5"): "s_shaped",
+1700:         }
+1701: 
+1702:         key = cv2.waitKey(1) & 0xFF
+1703: 
+1704:         if key in trajectory_presets:
+1705:             if not trajectory_assessment.attempt_active:
+1706:                 selected_preset = trajectory_presets[key]
+1707: 
+1708:                 trajectory_assessment.set_preset(
+1709:                     selected_preset,
+1710:                     frame_width=1280,
+1711:                     frame_height=720,
+1712:                 )
+1713: 
+1714:                 print(f"[TRAJECTORY] Selected: {selected_preset}")
+1715:             else:
+1716:                 print(
+1717:                     "[TRAJECTORY] Cannot change preset "
+1718:                     "while an attempt is active."
+1719:                 )
+1720: 
+1721:         # key = cv2.waitKey(1) & 0xFF
+1722: 
+1723:         if key == ord("q"):
+1724:             break
+1725: 
+1726: 
+1727: 
+1728:     # -----------------------------
+1729:     # Cleanup
+1730:     # -----------------------------
+1731: 
+1732: finally:
+1733:     camera.release()
+1734:     writer.release()

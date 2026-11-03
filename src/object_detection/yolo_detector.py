@@ -2,7 +2,10 @@ from ultralytics import YOLO
 
 
 # Load pretrained YOLO model once
-model = YOLO("yolo11n.pt")
+import os
+MODEL_NAME = os.environ.get("YOLO_MODEL", "yolo11m.pt")
+model = YOLO(MODEL_NAME)
+print(f"[DETECTOR] model: {MODEL_NAME}")
 
 
 def detect_objects(frame):
@@ -19,7 +22,7 @@ def detect_objects(frame):
 
     results = model(
         frame,
-        conf=0.15,
+        conf=0.25,
         verbose=False
     )
 

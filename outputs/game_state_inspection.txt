@@ -1,0 +1,330 @@
+
+============================================================
+CAMERA LINES 105-135
+============================================================
+105: 
+106: INTERACTION_DIR = Path("data/raw/interactions")
+107: INTERACTION_DIR.mkdir(parents=True, exist_ok=True)
+108: 
+109: interaction_output_path = (
+110:     INTERACTION_DIR
+111:     / f"{timestamp}_interaction_data.csv"
+112: )
+113: 
+114: SESSION_ID = SESSION_CONFIG.session_id
+115: TRIAL_ID = "trial_001"
+116: REPETITION_NUMBER = 1
+117: 
+118: 
+119: object_detection_tracker = ObjectDetectionTracker(
+120:     lost_after_frames=3,
+121:     uncertain_threshold=0.25
+122: )
+123: 
+124: identity_tracker = ObjectIdentityTracker(
+125:     max_missing_frames=15,
+126:     max_match_distance=100,
+127: )
+128: 
+129: movement_tracker = ObjectMovementTracker()
+130: 
+131: # Experimental object-geometry settings
+132: SEGMENTATION_ENABLED = True
+133: 
+134: segmenter = None
+135: 
+
+============================================================
+CAMERA LINES 355-505
+============================================================
+355:                         frame,
+356:                         angle_text,
+357:                         (20, 350 + index * 25),
+358:                         cv2.FONT_HERSHEY_SIMPLEX,
+359:                         0.55,
+360:                         (255, 255, 0),
+361:                         2,
+362:                     )
+363: 
+364:         frame_number += 1
+365:         timestamp_ms = int((time.perf_counter() - start_time) * 1000)
+366: 
+367:         # Whether the active trajectory object has a valid
+368:         # hand-object interaction in the current frame.
+369:         trajectory_interaction_active = False
+370: 
+371:         # Save upper-body landmarks using the current frame's timestamp.
+372:         log_pose_frame(
+373:             writer=pose_csv_writer,
+374:             frame_number=frame_number,
+375:             timestamp_ms=timestamp_ms,
+376:             upper_body_landmarks=upper_body_landmarks,
+377:             upper_body_angles=upper_body_angles,
+378:         )
+379: 
+380:         # Detect objects using YOLO.
+381:         raw_detected_objects = track_objects(frame)
+382: 
+383:         # TEMPORARY DIAGNOSTIC: Check whether YOLO detects the bottle
+384:         # before duplicate filtering and application-level identity tracking.
+385: 
+386:         if frame_number % 15 == 0:
+387:             raw_bottles = [
+388:                 obj for obj in raw_detected_objects
+389:                 if obj["class_name"] == "bottle"
+390:             ]
+391: 
+392:             print(
+393:                 f"[DETECTION CHECK] Frame {frame_number} | "
+394:                 f"Raw bottles: {len(raw_bottles)} | "
+395:                 f"YOLO IDs: {[obj.get('track_id') for obj in raw_bottles]} | "
+396:                 f"Confidence: {[round(obj['confidence'], 2) for obj in raw_bottles]}"
+397:             )
+398: 
+399:         # Flag near-identical detections before assigning application IDs.
+400:         detected_objects, probable_duplicates = filter_duplicate_objects(
+401:             raw_detected_objects,
+402:             iou_threshold=0.90
+403:         )
+404: 
+405:         # Assign application-level IDs to the retained detections.
+406:         detected_objects = identity_tracker.update(detected_objects)
+407: 
+408:         # Temporary diagnostic: inspect application-level object identity.
+409:         for obj in detected_objects:
+410:             if obj["class_name"] == "bottle":
+411:                 print(
+412:                     f"[IDENTITY DEBUG] "
+413:                     f"Frame: {frame_number} | "
+414:                     f"YOLO ID: {obj.get('track_id')} | "
+415:                     f"Object ID: {obj.get('object_id')} | "
+416:                     f"Status: {obj.get('identity_status')} | "
+417:                     f"Centre: {obj.get('center')}"
+418:                 )
+419: 
+420:         # -------------------------------------------------
+421:         # Experimental object segmentation and geometry
+422:         # -------------------------------------------------
+423: 
+424:         if SEGMENTATION_ENABLED and permitted_objects:
+425: 
+426:             segmented_objects = segmenter.segment_objects(
+427:                 frame,
+428:                 allowed_classes=permitted_objects,
+429:             )
+430: 
+431:             detected_objects = attach_object_geometry(
+432:                 tracked_objects=detected_objects,
+433:                 segmented_objects=segmented_objects,
+434:                 min_iou=0.30,
+435:             )
+436: 
+437:         # -------------------------------------------------
+438:         # Per-object movement
+439:         # -------------------------------------------------
+440: 
+441:         object_movements = movement_tracker.update(detected_objects)
+442: 
+443:         # Log object detections independently of hand detection
+444:         log_detected_objects(
+445:             writer=object_csv_writer,
+446:             detected_objects=detected_objects,
+447:             session_id=SESSION_ID,
+448:             frame_number=frame_number,
+449:             timestamp_ms=timestamp_ms,
+450:             task_id=CURRENT_TASK_ID,
+451:             task_name=current_task["task_name"],
+452:         )
+453: 
+454:         if frame_number % 30 == 0:
+455:             # print(
+456:             #     "YOLO:",
+457:             #     [obj["class_name"] for obj in detected_objects]
+458:             # )
+459: 
+460:             print(
+461:                 "YOLO:",
+462:                 [
+463:                     (
+464:                         obj["class_name"],
+465:                         round(obj["confidence"], 2)
+466:                     )
+467:                     for obj in detected_objects
+468:                 ]
+469:             )
+470: 
+471:         permitted_detected_objects, irrelevant_detected_objects = (filter_objects_by_class(detected_objects, permitted_objects))
+472: 
+473:        
+474:         # Temporary tracking-ID diagnostic
+475:         if frame_number % 30 == 0:
+476:             print(
+477:                 "TRACKING DEBUG:",
+478:                 [
+479:                     {
+480:                         "class": obj["class_name"],
+481:                         "track_id": obj.get("track_id"),
+482:                         "status": obj.get("tracking_status")
+483:                     }
+484:                     for obj in permitted_detected_objects
+485:                 ]
+486:             )
+487: 
+488:         if frame_number % 30 == 0:
+489:             print(
+490:                 "Permitted:",
+491:                 [
+492:                     obj["class_name"]
+493:                     for obj in permitted_detected_objects
+494:                 ]
+495:             )
+496: 
+497: 
+498:         object_outcome = object_detection_tracker.update(permitted_detected_objects)
+499: 
+500:         rgb_frame = cv2.cvtColor(
+501:             frame,
+502:             cv2.COLOR_BGR2RGB
+503:         )
+504: 
+505:         results = hands.process(rgb_frame)
+
+============================================================
+CAMERA LINES 1170-1240
+============================================================
+1170: 
+1171:                     last_associated_object_ids[hand_label] = current_object_id
+1172: 
+1173:                 else:
+1174:                     # No valid hand-object association in this frame.
+1175:                     association_missing_frames[hand_label] += 1
+1176: 
+1177:                     # Preserve the previous event history briefly.
+1178:                     # Do not update it or infer a release during the gap.
+1179:                     if (
+1180:                         association_missing_frames[hand_label]
+1181:                         >= ASSOCIATION_LOSS_RESET_FRAMES
+1182:                     ):
+1183:                         interaction_event_tracker.mark_unobserved(
+1184:                             hand_label
+1185:                         )
+1186: 
+1187:                         last_associated_object_ids[hand_label] = None
+1188: 
+1189: 
+1190:                 # -------------------------------------------------
+1191:                 # Trajectory attempt control
+1192:                 # -------------------------------------------------
+1193: 
+1194:                 if TRAJECTORY_MODE_ENABLED and associated_object is not None:
+1195: 
+1196:                     current_object_id = associated_object.get("object_id")
+1197: 
+1198:                     transport_states = {
+1199:                         "GRASPING",
+1200:                         "HOLDING",
+1201:                         "MANIPULATION",
+1202:                         "TRANSPORT",
+1203:                     }
+1204: 
+1205:                     if (
+1206:                         current_object_id is not None
+1207:                         and interaction_state in transport_states
+1208:                     ):
+1209: 
+1210:                         if not trajectory_assessment.attempt_active:
+1211: 
+1212:                             trajectory_assessment.start_attempt(
+1213:                                 object_id=current_object_id
+1214:                             )
+1215: 
+1216:                         if (
+1217:                             current_object_id
+1218:                             == trajectory_assessment.active_object_id
+1219:                         ):
+1220:                             trajectory_interaction_active = True
+1221: 
+1222:                     
+1223:                    
+1224: 
+1225:                 # Remember the latest detected event for the video overlay.
+1226:                 # This does not affect event detection or CSV logging.
+1227:                 if interaction_event is not None:
+1228:                     display_events[hand_label] = interaction_event
+1229: 
+1230:                 # Duration is available only when an observed release occurs.
+1231:                 grasp_duration_ms = None
+1232: 
+1233:                 if interaction_event == "RELEASE":
+1234:                     object_id = (
+1235:                         associated_object.get("object_id")
+1236:                         if associated_object is not None
+1237:                         else None
+1238:                     )
+1239: 
+1240:                     if object_id is not None:
+
+============================================================
+CAMERA LINES 1605-1665
+============================================================
+1605:         #     cv2.FONT_HERSHEY_SIMPLEX,
+1606:         #     0.6,
+1607:         #     (255, 255, 255),
+1608:         #     2
+1609:         # )
+1610: 
+1611:         # -------------------------------------------------
+1612:         # Record trajectory after hand-object interaction
+1613:         # -------------------------------------------------
+1614: 
+1615:         if TRAJECTORY_MODE_ENABLED and trajectory_assessment.attempt_active:
+1616: 
+1617:             trajectory_object = None
+1618: 
+1619:             for detected_object in permitted_detected_objects:
+1620: 
+1621:                 if (
+1622:                     detected_object.get("object_id")
+1623:                     == trajectory_assessment.active_object_id
+1624:                 ):
+1625:                     trajectory_object = detected_object
+1626:                     break
+1627: 
+1628:             if trajectory_object is not None:
+1629: 
+1630:                 trajectory_center = trajectory_object.get("center")
+1631: 
+1632:                 if trajectory_center is not None:
+1633: 
+1634:                     trajectory_assessment.update(
+1635:                         trajectory_center,
+1636:                         object_id=trajectory_object.get("object_id"),
+1637:                         timestamp_ms=timestamp_ms,
+1638:                     )
+1639: 
+1640:         # -------------------------------------------------
+1641:         # Update trajectory attempt once per camera frame
+1642:         # -------------------------------------------------
+1643: 
+1644:         if TRAJECTORY_MODE_ENABLED and trajectory_assessment.attempt_active:
+1645: 
+1646:             attempt_ended = trajectory_assessment.update_attempt_state(
+1647:                 interaction_active=trajectory_interaction_active,
+1648:                 grace_frames=10,
+1649:             )
+1650: 
+1651:             if attempt_ended:
+1652: 
+1653:                 trajectory_metrics = trajectory_assessment.get_metrics()
+1654: 
+1655:                 print("\nTrajectory attempt completed")
+1656: 
+1657:                 for metric_name, metric_value in trajectory_metrics.items():
+1658: 
+1659:                     print(f"{metric_name}: {metric_value}")
+1660: 
+1661:         # -------------------------------------------------
+1662:         # Draw trajectory testing mode
+1663:         # -------------------------------------------------
+1664: 
+1665:         if TRAJECTORY_MODE_ENABLED:

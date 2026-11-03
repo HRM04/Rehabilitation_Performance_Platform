@@ -21,7 +21,7 @@ def create_repetition_record(
     }
 
 
-def segment_repetitions(
+def _segment_repetitions_single_hand(
     rows,
     start_confirmation_frames=3,
     end_confirmation_frames=5,
@@ -66,6 +66,7 @@ def segment_repetitions(
     repetition_number = 1
 
     active_object_id = None
+    active_object_class = None
 
     for row in rows:
 
@@ -82,9 +83,9 @@ def segment_repetitions(
         except (TypeError, ValueError):
             object_movement = 0.0
 
-        # For the current bottle-transport task, interaction
-        # evidence requires a detected bottle.
-        valid_object = object_class == "bottle"
+        # Interaction evidence requires a detected task object. Any
+        # object class is accepted; people and furniture are not objects.
+        valid_object = bool(object_class) and object_class not in ("person", "chair", "dining table")
 
         # GRASPING is our strongest current evidence that the
         # hand is actively interacting with the object.
@@ -104,7 +105,8 @@ def segment_repetitions(
         if in_repetition and active_object_id is not None:
             active_interaction = (
                 active_interaction
-                and row.get("object_id") == active_object_id
+                and (row.get("object_id") == active_object_id
+                     or (active_object_class and row.get("object_class") == active_object_class))
             )
 
         # -------------------------------------------------
@@ -124,6 +126,7 @@ def segment_repetitions(
                 if (
                     candidate_start_count > 0
                     and current_object_id != active_object_id
+                    and row.get("object_class") != active_object_class
                 ):
                     candidate_start_count = 0
                     total_object_movement = 0.0
@@ -135,6 +138,7 @@ def segment_repetitions(
                     candidate_start_timestamp_ms = timestamp_ms
                     total_object_movement = 0.0
                     active_object_id = row.get("object_id")
+                    active_object_class = row.get("object_class")
 
                 # Include movement from every confirmation frame.
                 total_object_movement += object_movement
@@ -242,10 +246,66 @@ def segment_repetitions(
                 start_timestamp_ms=start_timestamp_ms,
                 end_timestamp_ms=last_active_timestamp_ms,
                 total_object_movement=total_object_movement,
+                object_id=active_object_id,
             )
 
             repetition["ended_with_recording"] = True
 
             repetitions.append(repetition)
+
+    return repetitions
+
+def segment_repetitions(
+    rows,
+    start_confirmation_frames=3,
+    end_confirmation_frames=5,
+    minimum_duration_ms=500,
+    minimum_total_movement=20.0,
+):
+    """Segment each hand independently and merge results chronologically."""
+
+    from collections import defaultdict
+
+    hand_rows = defaultdict(list)
+
+    for row in rows:
+        hand = str(row.get("handedness") or "").strip()
+
+        if not hand:
+            continue
+
+        hand_rows[hand].append(row)
+
+    repetitions = []
+
+    for hand, observations in hand_rows.items():
+        observations.sort(
+            key=lambda row: (
+                int(float(row["frame_number"])),
+                float(row["timestamp_ms"]),
+            )
+        )
+
+        segments = _segment_repetitions_single_hand(
+            observations,
+            start_confirmation_frames=start_confirmation_frames,
+            end_confirmation_frames=end_confirmation_frames,
+            minimum_duration_ms=minimum_duration_ms,
+            minimum_total_movement=minimum_total_movement,
+        )
+
+        for segment in segments:
+            segment["handedness"] = hand
+            repetitions.append(segment)
+
+    repetitions.sort(
+        key=lambda segment: (
+            segment["start_timestamp_ms"],
+            segment["start_frame"],
+        )
+    )
+
+    for number, segment in enumerate(repetitions, start=1):
+        segment["repetition_number"] = number
 
     return repetitions

@@ -1,0 +1,3 @@
+Model now: thumb_index <= 0.236 -> PRECISION, otherwise POWER (held-out family accuracy 80.1%)
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/src/grasp/family_model.json
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/family_simplify_20261102_001059/src/grasp/family_model.json

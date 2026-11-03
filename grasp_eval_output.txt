@@ -1,0 +1,31 @@
+labelled files: 4 | frames per grasp: {'cylindrical': 267, 'spherical': 292, 'large_palmar': 102, 'whole_hand_power': 206, 'handle': 239, 'hook': 179, 'pincer': 257, 'tip_pinch': 234, 'tripod': 226, 'lateral_pinch': 219, 'multidigit_precision': 221}
+
+PER GRASP: own detector fires | final label correct | AMBIGUOUS | UNKNOWN | most common wrong label
+  cylindrical             66.3% |   0.0% |  77.9% |   3.0% | multidigit_precision (18%)
+  spherical               64.4% |   0.0% |  99.7% |   0.0% | large_palmar (0%)
+  large_palmar            21.6% |   0.0% |  85.3% |   8.8% | multidigit_precision (3%)
+  whole_hand_power        43.2% |   0.0% |  87.9% |   0.0% | multidigit_precision (7%)
+  handle                  74.1% |   0.0% |  97.1% |   0.0% | lateral_pinch (3%)
+  hook                     0.0% |   0.0% |  33.0% |  33.5% | lateral_pinch (30%)
+  pincer                   0.0% |   0.0% |  86.8% |   0.0% | tip_pinch (7%)
+  tip_pinch               40.6% |  22.6% |  76.5% |   0.0% | multidigit_precision (1%)
+  tripod                  62.8% |   0.0% |  99.6% |   0.0% | lateral_pinch (0%)
+  lateral_pinch            8.2% |   0.0% |  68.5% |   0.0% | tip_pinch (31%)
+  multidigit_precision    88.2% |   0.0% | 100.0% |   0.0% | -
+
+Overall: final label equals the true grasp on 2.2% of 2442 frames
+Before label averaging (raw): 2.3%
+
+DETECTOR FIRING MATRIX (rows = true grasp, columns = detector, % of frames)
+                     cylin spher large whole handl  hook pince tip_p tripo later multi
+cylindrical             66    76    42    34    12    21     0     0     4     3    54
+spherical               89    64     1    20    66     1     0     1    57    64    89
+large_palmar            25    27    22    10     5     0     0     1    11    68    67
+whole_hand_power        76    76    21    43    58     0     0     0    39    23    60
+handle                  76    54    15    46    74     0     0     0    37    40    69
+hook                    22    23    15     5     9     0     3    12     8    43    18
+pincer                  75    62    26    47    51     0     0    21    25     8    50
+tip_pinch               70    69    39    59    11     0     0    41    11     4    49
+tripod                  68    66     8    38    50     0     3     2    63     6    64
+lateral_pinch           44    47    32    41     5     0     0    56     3     8    33
+multidigit_precision    77    41     5    25    49     0     0     3    90     4    88

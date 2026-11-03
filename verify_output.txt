@@ -1,0 +1,77 @@
+======== GRASPS IN CONTACT FRAMES ONLY ========
+interaction files: 211
+interaction states (all hand frames): {'NONE': 49338, 'GRASPING': 17673, 'CONTACT': 2677, 'NEAR': 288}
+contact frames (CONTACT or GRASPING) with a grasp label: 18828
+
+bottle (6636 frames)
+  labels:         AMBIGUOUS 32%, lateral_pinch 21%, large_palmar 13%, UNKNOWN 10%, multidigit_precision 8%, cylindrical 6%
+  appropriateness: INAPPROPRIATE 52%, UNCERTAIN 42%, APPROPRIATE 6%
+
+cell phone (5901 frames)
+  labels:         lateral_pinch 34%, UNKNOWN 18%, AMBIGUOUS 12%, large_palmar 11%, multidigit_precision 9%, pincer 6%
+  appropriateness: INAPPROPRIATE 56%, UNCERTAIN 25%, APPROPRIATE 11%, NOT_ASSESSED 8%
+
+(none) (2837 frames)
+  labels:         AMBIGUOUS 48%, lateral_pinch 16%, UNKNOWN 14%, multidigit_precision 8%, large_palmar 5%, cylindrical 3%
+  appropriateness: NOT_ASSESSED 100%
+
+cup (1522 frames)
+  labels:         AMBIGUOUS 23%, UNKNOWN 21%, large_palmar 17%, cylindrical 13%, lateral_pinch 11%, pincer 5%
+  appropriateness: INAPPROPRIATE 32%, NOT_ASSESSED 29%, UNCERTAIN 26%, APPROPRIATE 14%
+
+bowl (705 frames)
+  labels:         AMBIGUOUS 58%, UNKNOWN 17%, lateral_pinch 15%, multidigit_precision 5%, large_palmar 3%, tip_pinch 1%
+  appropriateness: UNCERTAIN 69%, INAPPROPRIATE 19%, NOT_ASSESSED 10%, APPROPRIATE 2%
+
+apple (635 frames)
+  labels:         AMBIGUOUS 80%, UNKNOWN 14%, tip_pinch 2%, large_palmar 2%, lateral_pinch 1%, multidigit_precision 1%
+  appropriateness: NOT_ASSESSED 100%
+
+fork (284 frames)
+  labels:         AMBIGUOUS 85%, multidigit_precision 10%, lateral_pinch 4%, UNKNOWN 1%
+  appropriateness: UNCERTAIN 48%, NOT_ASSESSED 39%, APPROPRIATE 10%, INAPPROPRIATE 3%
+
+book (102 frames)
+  labels:         AMBIGUOUS 77%, UNKNOWN 14%, tip_pinch 6%, lateral_pinch 2%, large_palmar 1%
+  appropriateness: NOT_ASSESSED 100%
+
+sports ball (101 frames)
+  labels:         AMBIGUOUS 64%, large_palmar 34%, UNKNOWN 2%
+  appropriateness: NOT_ASSESSED 100%
+
+toothbrush (70 frames)
+  labels:         AMBIGUOUS 83%, pincer 17%
+  appropriateness: NOT_ASSESSED 100%
+
+wine glass (14 frames)
+  labels:         lateral_pinch 100%
+  appropriateness: NOT_ASSESSED 100%
+
+skateboard (11 frames)
+  labels:         lateral_pinch 64%, AMBIGUOUS 36%
+  appropriateness: NOT_ASSESSED 100%
+
+Most common AMBIGUOUS candidate sets in contact frames:
+    655  tripod, multidigit_precision
+    420  lateral_pinch, multidigit_precision
+    300  cylindrical, spherical, multidigit_precision
+    256  tripod, lateral_pinch, multidigit_precision
+    249  cylindrical, spherical, handle, tripod, multidigit_precision
+    229  cylindrical, spherical, large_palmar, whole_hand_power, handle, hook
+    216  cylindrical, spherical, tripod, lateral_pinch, multidigit_precision
+    192  cylindrical, spherical, large_palmar, handle
+
+======== VERIFICATION SUITE (known-answer tests) ========
+...................................................                      [100%]
+51 passed in 0.47s
+======== ALL TESTS ========
+........................................................................ [ 81%]
+................                                                         [100%]
+88 passed in 0.30s
+
+======== FILE LOCATIONS ========
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/tests/test_verification_suite.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/tools/verify_contact_grasps.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/contact_grasps_20261101_230054.txt
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/verification_suite_20261101_230054.txt
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/pytest_all_20261101_230054.txt

@@ -47,3 +47,25 @@ data/processed/
 # -----------------------------
 *.log
 *.tmp
+# code-only repository: no data, datasets, reports, archives, videos, weights or backups
+data/
+datasets/
+reports/
+*.zip
+*.csv
+*.mp4
+*.pt
+*backup*
+*.pre_*.py
+.venv/
+venv/
+__pycache__/
+.DS_Store
+
+# extra exclusions
+checkpoints/
+*.bak
+*.tar.gz
+*.npz
+*.jpg
+*.jpeg

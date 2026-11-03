@@ -1,4 +1,21 @@
+import math
 import csv
+import os as _os
+from src.preprocessing.landmark_smoothing import HAND_SMOOTHER
+print('[SMOOTHING]', HAND_SMOOTHER.describe())
+from src.grasp.grasp_family import family_features, classify_family, family_assessment, describe as _family_describe
+print('[GRASP FAMILY]', _family_describe())
+from src.grasp.grasp_guess import best_guess, describe as _guess_describe
+print('[BEST GUESS]', _guess_describe())
+from src.preprocessing.grasp_voting import GRASP_VOTER
+print('[GRASP VOTING]', GRASP_VOTER.describe())
+from src.preprocessing.hand_dedup import dedupe_hands, describe as _dedup_describe, STATS as HAND_DEDUP_STATS
+print('[HAND DEDUP]', _dedup_describe())
+from src.preprocessing.handedness import final_label, describe as _hand_describe
+from src.preprocessing.label_stabiliser import stable_hand_label, describe as _stab_describe
+print('[HANDEDNESS]', _hand_describe())
+print("[LABEL STABILISER]", _stab_describe())
+from src.object_detection.hand_object_interaction import pinch_contact_at_object, note_pinch_error
 import json
 import cv2
 from datetime import datetime
@@ -17,8 +34,13 @@ from src.grasp.grasp_classifier import (classify_pinch, detect_cylindrical_grasp
                                         detect_lateral_pinch)
 from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks,log_no_hand_frame)
 from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects)
-from src.object_detection.hand_object_interaction import (find_nearest_object, is_hand_near_object, 
-                                                          count_fingertips_near_object, determine_interaction_state, InteractionStateTracker)
+from src.object_detection.hand_object_interaction import (
+    is_hand_near_object,
+    count_fingertips_near_object,
+    determine_interaction_state,
+    InteractionStateTracker,
+    select_hand_object_association,
+)
 from src.tasks.task_config import get_task
 from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects, filter_objects_by_class,)
 from src.data.frame_record import create_frame_record
@@ -37,6 +59,7 @@ from src.assessment.posture_metrics import (
     calculate_trunk_posture,
 )
 from src.assessment.posture_calibration_controller import PostureCalibrationController
+from src.assessment.shoulder_only_posture import shoulder_only_status
 from src.pose.pose_logger import create_pose_logger, log_pose_frame
 from src.pose.joint_angles import calculate_upper_body_angles
 from src.assessment.game_trajectory import GameTrajectory
@@ -76,7 +99,7 @@ HEIGHT = SESSION_CONFIG.frame_height
 # Trajectory testing mode
 # -----------------------------
 
-TRAJECTORY_MODE_ENABLED = True
+TRAJECTORY_MODE_ENABLED = SESSION_CONFIG.trajectory_enabled
 
 trajectory_assessment = GameTrajectory(
     object_name=SESSION_CONFIG.object_id,
@@ -102,6 +125,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 output_path = OUTPUT_DIR / f"{timestamp}_camera_test.mp4"
+raw_video_path = OUTPUT_DIR / f"{timestamp}_raw_camera.mp4"
 
 LANDMARK_DIR = Path("data/raw/landmarks")
 LANDMARK_DIR.mkdir(parents=True, exist_ok=True)
@@ -123,6 +147,10 @@ TRIAL_ID = "trial_001"
 REPETITION_NUMBER = 1
 
 # Trajectory session state
+trajectory_assessment.orientation_enabled = (
+    SESSION_CONFIG.orientation_enabled
+)
+
 TRAJECTORY_TARGET_REPETITIONS = SESSION_CONFIG.target_repetitions
 trajectory_successful_repetitions = 0
 trajectory_attempt_history = []
@@ -150,7 +178,7 @@ identity_tracker = ObjectIdentityTracker(
 movement_tracker = ObjectMovementTracker()
 
 # Experimental object-geometry settings
-SEGMENTATION_ENABLED = False
+SEGMENTATION_ENABLED = SESSION_CONFIG.segmentation_enabled
 
 segmenter = None
 
@@ -223,6 +251,15 @@ writer = cv2.VideoWriter(
 if not writer.isOpened():
     camera.release()
     raise RuntimeError("Could not create video writer.")
+
+# Record the mirrored camera input without assessment overlays.
+raw_writer = cv2.VideoWriter(
+    str(raw_video_path), fourcc, FPS, (WIDTH, HEIGHT)
+)
+if not raw_writer.isOpened():
+    writer.release()
+    camera.release()
+    raise RuntimeError("Could not create raw video writer.")
 
 
 print("Recording started.")
@@ -319,6 +356,9 @@ try:
         # Apply before detection, tracking, and trajectory rendering
         # so all components share the same coordinate system.
         frame = cv2.flip(frame, 1)
+
+        # Preserve the exact mirrored input used for assessment.
+        raw_writer.write(frame)
 
         # Detect upper-body landmarks in the current camera frame.
         perf_start = time.perf_counter()
@@ -424,6 +464,7 @@ try:
             # Whether the active trajectory object has a valid
             # hand-object interaction in the current frame.
             trajectory_interaction_active = False
+            trajectory_contact_object_ids = set()
 
             # Save upper-body landmarks using the current frame's timestamp.
             log_pose_frame(
@@ -460,6 +501,47 @@ try:
                 raw_detected_objects,
                 iou_threshold=0.90
             )
+
+            # [DUPLICATE FILTER DIAGNOSTIC] All object classes
+            from collections import defaultdict
+
+            groups = defaultdict(list)
+            for obj in detected_objects:
+                groups[obj["class_name"]].append(obj)
+
+            duplicates = {
+                cls: objs for cls, objs in groups.items()
+                if len(objs) > 1
+            }
+
+            if duplicates or probable_duplicates:
+                print(
+                    f"[DUPLICATE FILTER] Frame {frame_number} | "
+                    f"Raw: {len(raw_detected_objects)} | "
+                    f"Retained: {len(detected_objects)} | "
+                    f"Removed: {len(probable_duplicates)}"
+                )
+
+                for cls, objs in duplicates.items():
+                    print(
+                        f"  MULTIPLE {cls}:",
+                        [
+                            {
+                                "track_id": o.get("track_id"),
+                                "confidence": round(o["confidence"], 2),
+                                "box": o["bounding_box"],
+                            }
+                            for o in objs
+                        ],
+                    )
+
+                for o in probable_duplicates:
+                    print(
+                        "  REMOVED:",
+                        o.get("class_name"),
+                        o.get("track_id"),
+                        o.get("bounding_box"),
+                    )
 
             # Assign application-level IDs to the retained detections.
             detected_objects = identity_tracker.update(detected_objects)
@@ -533,6 +615,21 @@ try:
 
             permitted_detected_objects, irrelevant_detected_objects = (filter_objects_by_class(detected_objects, permitted_objects))
 
+            # Objects eligible for hand association and trajectory assessment.
+            # Keep people in YOLO detections, but never treat them as
+            # manipulable objects.
+            _assoc_permitted_only = _os.environ.get("ASSOC_PERMITTED_ONLY", "on") != "off"
+            trajectory_detected_objects = [
+                obj for obj in detected_objects
+                if obj.get("class_name") not in {"person", "chair"}
+                and (
+                    not _assoc_permitted_only
+                    or not permitted_objects
+                    or obj.get("class_name") in permitted_objects
+                )
+            ]
+
+
        
             # Temporary tracking-ID diagnostic
             if frame_number % 30 == 0:
@@ -569,37 +666,6 @@ try:
                 ):
                     trajectory_assessment.reset()
 
-            # Start confirmation uses the detected object,
-            # independently of grasp recognition.
-            if (
-                TRAJECTORY_MODE_ENABLED
-                and not trajectory_session_complete
-                and not trajectory_assessment.attempt_active
-                and trajectory_assessment.outcome == "WAITING"
-            ):
-                start_candidates = [
-                    obj for obj in permitted_detected_objects
-                    if obj.get("center") is not None
-                    and obj.get("object_id") is not None
-                ]
-
-                if len(start_candidates) == 1:
-                    candidate = start_candidates[0]
-                    was_active = trajectory_assessment.attempt_active
-
-                    trajectory_assessment.consider_start(
-                        object_id=candidate["object_id"],
-                        object_center=candidate["center"],
-                    )
-
-                    if (
-                        not was_active
-                        and trajectory_assessment.attempt_active
-                    ):
-                        trajectory_attempt_start_ms = timestamp_ms
-                else:
-                    trajectory_assessment.clear_start_confirmation()
-
             object_outcome = object_detection_tracker.update(permitted_detected_objects)
 
             rgb_frame = cv2.cvtColor(
@@ -609,10 +675,11 @@ try:
 
             perf_start = time.perf_counter()
             results = hands.process(rgb_frame)
+            results = dedupe_hands(results)
             perf_totals["hands"] += time.perf_counter() - perf_start
             # YOLO detection remains active for tracking and logging.
             # Hide bounding boxes and class labels in the assessment view.
-            # draw_detected_objects(frame, detected_objects)
+            draw_detected_objects(frame, detected_objects)
 
             # Display YOLO and application-level object IDs
             for tracked_object in permitted_detected_objects:
@@ -719,14 +786,11 @@ try:
             detected_hand_labels = set()
 
             if results.multi_hand_landmarks:
-                for handedness in results.multi_handedness:
+                for _hi, handedness in enumerate(results.multi_handedness):
                     hand_label = handedness.classification[0].label
 
                     # Apply the same handedness correction as the hand loop.
-                    if hand_label == "Left":
-                        hand_label = "Right"
-                    else:
-                        hand_label = "Left"
+                    hand_label = stable_hand_label(results, _hi)
 
                     detected_hand_labels.add(hand_label)
 
@@ -788,10 +852,10 @@ try:
                     hand_label = handedness.classification[0].label
                     hand_confidence = handedness.classification[0].score
 
-                    if hand_label == "Left":
-                        hand_label = "Right"
-                    else:
-                        hand_label = "Left"
+                    hand_label = stable_hand_label(results, hand_index)
+
+                    # Smooth landmarks (One Euro filter) before any feature is computed.
+                    HAND_SMOOTHER.smooth(hand_label, hand_landmarks, timestamp_ms)
 
                     hand_missing_frames[hand_label] = 0
 
@@ -834,86 +898,51 @@ try:
                     object_distance = None
                     object_movement = 0.0
 
-                    nearest_object, object_distance = find_nearest_object(
-                        hand_center,
-                        permitted_detected_objects
+                    # Select a hand-object pair using fingertip evidence,
+                    # spatial proximity, ambiguity handling and continuity.
+                    associated_object, association_status, association_diagnostics = (
+                        select_hand_object_association(
+                            hand_center=hand_center,
+                            hand_data=hand_data,
+                            detected_objects=trajectory_detected_objects,
+                            previous_object_id=last_associated_object_ids[hand_label],
+                        )
                     )
 
-                    # A nearby detection is only a candidate for hand-object association.
-                    # Do not treat a distant object as the hand's interaction target.
-                    associated_object = None
-
-                    if nearest_object is not None:
-                        palm_near_object = is_hand_near_object(
-                            hand_center,
-                            nearest_object
-                        )
-
-                        candidate_fingertip_count = count_fingertips_near_object(
-                            hand_data,
-                            nearest_object
-                        )
-
-                        if palm_near_object or candidate_fingertip_count >= 2:
-                            associated_object = nearest_object
+                    if association_status != "ASSOCIATED":
+                        associated_object = None
 
                     if associated_object is not None:
                         object_name = associated_object["class_name"]
-
                         associated_object_id = associated_object.get("object_id")
 
                         object_movement = object_movements.get(
-                            associated_object_id,
-                            0.0
+                            associated_object_id, 0.0
                         )
 
-                        # -----------------------------
-                        # Hand-object proximity
-                        # -----------------------------
-                        hand_near_object = is_hand_near_object(
-                            hand_center,
-                            associated_object
-                        )
-
-                        # Keep your existing fingertip and grasp calculations
-                        # below this line, inside the same if block.
-                        # -----------------------------
-                        # Hand-object proximity
-                        # -----------------------------
-                        hand_near_object = (
-                            is_hand_near_object(hand_center, nearest_object)
-                            or candidate_fingertip_count >= 2
-                        )
-
-                        # -----------------------------
-                        # Fingertip-object proximity
-                        # -----------------------------
                         fingertip_count = count_fingertips_near_object(
-                            hand_data,
-                            nearest_object
+                            hand_data, associated_object
                         )
 
-                        # cv2.putText(
-                        #     frame,
-                        #     interaction_text,
-                        #     (wrist_x, wrist_y - 90),
-                        #     cv2.FONT_HERSHEY_SIMPLEX,
-                        #     0.6,
-                        #     (255, 255, 0),
-                        #     2
-                        # )
+                        hand_near_object = (
+                            is_hand_near_object(hand_center, associated_object)
+                            or fingertip_count >= 2
+                        )
 
-                
+                        if hand_near_object and associated_object_id is not None:
+                            trajectory_contact_object_ids.add(associated_object_id)
 
-                        # cv2.putText(
-                        #     frame,
-                        #     interaction_text,
-                        #     (wrist_x, wrist_y - 90),
-                        #     cv2.FONT_HERSHEY_SIMPLEX,
-                        #     0.6,
-                        #     (255, 255, 0),
-                        #     2
-                        # )
+                        object_distance = next(
+                            (
+                                candidate["distance_px"]
+                                for candidate in association_diagnostics["candidates"]
+                                if candidate["object_id"] == associated_object_id
+                            ),
+                            None,
+                        )
+
+                    # Uncertain associations must not generate object-specific
+                    # interaction events or grasp-appropriateness assessments.
 
                     # -----------------------------
                     # Wrist-relative coordinates
@@ -1170,13 +1199,18 @@ try:
                         detected_grasp_type = detected_grasp_types[0]
 
                     elif len(detected_grasp_types) > 1:
-                        detected_grasp_type = max(
-                            detected_grasp_types,
-                            key=lambda grasp: grasp_confidences[grasp]
-                        )
+                        # Detector scores are heuristic and not calibrated
+                        # against each other. Preserve uncertainty instead
+                        # of automatically choosing the highest score.
+                        detected_grasp_type = "AMBIGUOUS"
 
                     else:
                         detected_grasp_type = "UNKNOWN"
+
+                    # Average the label over the last few frames (keeps AMBIGUOUS/UNKNOWN honest).
+                    raw_detected_grasp_type = detected_grasp_type
+                    detected_grasp_type, detected_grasp_types = GRASP_VOTER.vote(
+                        hand_label, timestamp_ms, detected_grasp_type, detected_grasp_types)
 
                     # Display the preliminary grasp classification for this hand.
                     candidate_text = ", ".join(detected_grasp_types) or "none"
@@ -1218,14 +1252,51 @@ try:
                     ):
                         grasp_appropriateness = "NOT_ASSESSED"
 
-                    elif detected_grasp_type in ("UNKNOWN", "AMBIGUOUS"):
+                    elif detected_grasp_type == "UNKNOWN":
                         grasp_appropriateness = "UNCERTAIN"
+
+                    elif detected_grasp_type == "AMBIGUOUS":
+                        # The label stays AMBIGUOUS. Appropriateness is decided only when
+                        # every candidate agrees: all expected, or none expected.
+                        if _os.environ.get("AMBIGUOUS_APPROPRIATENESS", "agree") == "strict":
+                            grasp_appropriateness = "UNCERTAIN"
+                        elif all(g in expected_grasps for g in detected_grasp_types):
+                            grasp_appropriateness = "APPROPRIATE"
+                        elif not any(g in expected_grasps for g in detected_grasp_types):
+                            grasp_appropriateness = "INAPPROPRIATE"
+                        else:
+                            grasp_appropriateness = "UNCERTAIN"
 
                     elif detected_grasp_type in expected_grasps:
                         grasp_appropriateness = "APPROPRIATE"
 
                     else:
                         grasp_appropriateness = "INAPPROPRIATE"
+
+                    # Grasp family (POWER or PRECISION) and family-level appropriateness.
+                    try:
+                        _ff = family_features(
+                            thumb_index_distance, thumb_middle_distance, hand_aperture,
+                            thumb_index_side_distance, finger_spread, finger_angles, thumb_fingertip_distances)
+                        grasp_family = classify_family(hand_label, timestamp_ms, _ff, fingertips=fingertip_count)
+                        try:
+                            grasp_best_guess = best_guess(hand_label, timestamp_ms, _ff, grasp_family)
+                        except Exception:
+                            grasp_best_guess = None
+                        family_appropriateness = family_assessment(
+                            grasp_family, grasp_appropriateness == 'NOT_ASSESSED', expected_grasps)
+                    except Exception:
+                        grasp_family, family_appropriateness = None, 'NOT_ASSESSED'
+                        grasp_best_guess = None  # reset with the family
+
+                    # On-screen grasp readout. Hide with: GRASP_OVERLAY=0
+                    if _os.environ.get("GRASP_OVERLAY", "1") != "0":
+                        _oy = 180 if hand_label == "Left" else 250
+                        _cand = (" (" + ", ".join(detected_grasp_types) + ")") if detected_grasp_type == "AMBIGUOUS" else ""
+                        cv2.putText(frame, f"{hand_label} grasp: {detected_grasp_type}{_cand}"[:70], (20, _oy), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+                        cv2.putText(frame, f"{hand_label} appropriateness: {grasp_appropriateness}", (20, _oy + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+                        cv2.putText(frame, f"{hand_label} family: {grasp_family or 'n/a'} ({family_appropriateness})"[:70], (20, _oy + 50), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+                        cv2.putText(frame, f"{hand_label} best guess: {grasp_best_guess or 'n/a'} (not confirmed)"[:70], (20, _oy + 75), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
 
                     # cv2.putText(
                     #     frame,
@@ -1237,15 +1308,43 @@ try:
                     #     2,
                     # )
 
+                    pinch_contact = False
+                    try:
+                        pinch_contact = pinch_contact_at_object(hand_data, associated_object, fingertip_count, grasp_family)
+                    except Exception as _pe:
+                        note_pinch_error(_pe)
                     candidate_interaction_state = determine_interaction_state(
                         hand_near_object=hand_near_object,
                         fingertips_near_object=fingertip_count,
-                        grasp_detected=grasp_detected
+                        grasp_detected=grasp_detected or pinch_contact
                     )
 
-                    interaction_state = interaction_trackers[hand_label].update(
-                        candidate_interaction_state
+                    # Only observed, identified hand-object pairs can
+                    # advance the interaction state machine.
+                    current_associated_id = (
+                        associated_object.get("object_id")
+                        if associated_object is not None
+                        else None
                     )
+                    previous_associated_id = last_associated_object_ids[hand_label]
+
+                    if current_associated_id is None:
+                        # An unobserved object is not a confirmed release.
+                        # Preserve the stable state during a brief gap.
+                        interaction_state = interaction_trackers[
+                            hand_label
+                        ].current_state
+                    else:
+                        if (
+                            previous_associated_id is not None
+                            and previous_associated_id != current_associated_id
+                        ):
+                            # A new object requires fresh state confirmation.
+                            interaction_trackers[hand_label].reset()
+
+                        interaction_state = interaction_trackers[
+                            hand_label
+                        ].update(candidate_interaction_state)
 
                     # Temporary diagnostic: report changes in the grasp state.
                     if interaction_state == "GRASPING":
@@ -1310,7 +1409,7 @@ try:
                             interaction_event_tracker.mark_unobserved(
                                 hand_label
                             )
-
+                            interaction_trackers[hand_label].reset()
                             last_associated_object_ids[hand_label] = None
 
 
@@ -1471,6 +1570,12 @@ try:
                         detected_grasp_type=detected_grasp_type,
                         detected_grasp_types=detected_grasp_types,
                         grasp_appropriateness=grasp_appropriateness,
+                        raw_grasp_type=raw_detected_grasp_type,
+                        grasp_family=grasp_family,
+                        family_appropriateness=family_appropriateness,
+                        best_guess=grasp_best_guess,
+                        association_status=association_status,
+                        association_diagnostics=association_diagnostics,
                     )
 
                     log_frame_record(
@@ -1735,6 +1840,96 @@ try:
             #     2
             # )
 
+            # Start trajectory only for a detected object in hand contact.
+            if (
+                TRAJECTORY_MODE_ENABLED
+                and not trajectory_session_complete
+                and not trajectory_assessment.attempt_active
+                and trajectory_assessment.outcome == "WAITING"
+            ):
+                start_candidates = [
+                    obj for obj in trajectory_detected_objects
+                    if obj.get("center") is not None
+                    and obj.get("object_id") is not None
+                    and obj["object_id"] in trajectory_contact_object_ids
+                    and math.dist(
+                        obj["center"],
+                        trajectory_assessment.start_point,
+                    ) <= trajectory_assessment.start_tolerance_px
+                ]
+
+                start_candidates.sort(
+                    key=lambda obj: math.dist(
+                        obj["center"],
+                        trajectory_assessment.start_point,
+                    )
+                )
+
+                candidate = None
+
+                if len(start_candidates) == 1:
+                    candidate = start_candidates[0]
+
+                elif len(start_candidates) > 1:
+                    first_distance = math.dist(
+                        start_candidates[0]["center"],
+                        trajectory_assessment.start_point,
+                    )
+                    second_distance = math.dist(
+                        start_candidates[1]["center"],
+                        trajectory_assessment.start_point,
+                    )
+
+                    # Do not choose between nearly overlapping candidates.
+                    if second_distance - first_distance > 30:
+                        candidate = start_candidates[0]
+
+                if candidate is not None:
+                    was_active = trajectory_assessment.attempt_active
+
+                    trajectory_assessment.consider_start(
+                        object_id=candidate["object_id"],
+                        object_center=candidate["center"],
+                        object_class=candidate.get("class_name"),
+                    )
+
+                    if not was_active and trajectory_assessment.attempt_active:
+                        trajectory_attempt_start_ms = timestamp_ms
+                else:
+                    trajectory_assessment.clear_start_confirmation()
+
+            # TEMPORARY TRAJECTORY START DIAGNOSTIC
+            if (
+                TRAJECTORY_MODE_ENABLED
+                and frame_number % 30 == 0
+                and not trajectory_assessment.attempt_active
+            ):
+                print(
+                    "[START DEBUG]",
+                    "detected=",
+                    [
+                        (
+                            obj.get("class_name"),
+                            obj.get("object_id"),
+                            obj.get("center")
+                        )
+                        for obj in detected_objects
+                    ],
+                    "contact_ids=",
+                    trajectory_contact_object_ids,
+                    "start_point=",
+                    trajectory_assessment.start_point,
+                    "candidate_id=",
+                    trajectory_assessment.start_candidate_id,
+                    "progress=",
+                    round(
+                        trajectory_assessment.start_confirmation_progress,
+                        2
+                    ),
+                    "outcome=",
+                    trajectory_assessment.outcome,
+                )
+
             # Reset start confirmation when the candidate
             # object disappears or leaves the start region.
             if (
@@ -1747,7 +1942,7 @@ try:
                 if candidate_id is not None:
                     candidate_visible = any(
                         obj.get("object_id") == candidate_id
-                        for obj in permitted_detected_objects
+                        for obj in trajectory_detected_objects
                     )
 
                     if not candidate_visible:
@@ -1760,7 +1955,8 @@ try:
             if TRAJECTORY_MODE_ENABLED and trajectory_assessment.attempt_active:
 
                 trajectory_object = trajectory_assessment.recover_object(
-                    permitted_detected_objects
+                    trajectory_detected_objects,
+                    contact_object_ids=trajectory_contact_object_ids,
                 )
 
                 object_visible = trajectory_object is not None
@@ -1769,10 +1965,16 @@ try:
                     trajectory_center = trajectory_object.get("center")
 
                     if trajectory_center is not None:
+                        geometry = trajectory_object.get("geometry") or {}
+
                         trajectory_assessment.update(
                             trajectory_center,
                             object_id=trajectory_object.get("object_id"),
                             timestamp_ms=timestamp_ms,
+                            orientation_deg=geometry.get("orientation_deg"),
+                            orientation_reliable=geometry.get(
+                                "orientation_reliable", False
+                            ),
                         )
 
                 attempt_ended = trajectory_assessment.update_attempt_state(
@@ -1812,6 +2014,19 @@ try:
                             trajectory_assessment.progress_fraction * 100, 2
                         ),
                         "metrics": trajectory_metrics,
+                        "orientation_checkpoints": [
+                            {
+                                "path_fraction": fraction,
+                                "required_axis_deg": angle
+                            }
+                            for fraction, angle
+                            in trajectory_assessment.orientation_checkpoints
+                        ],
+                        "orientation_events": list(
+                            trajectory_assessment.orientation_events
+                        ),
+                        "orientation_axis_tolerance_deg":
+                            trajectory_assessment.orientation_tolerance_deg,
                         "trajectory_points": [
                             list(point)
                             for point in trajectory_assessment.actual_path
@@ -1986,20 +2201,29 @@ try:
                 baseline, upper_body_landmarks
             )
 
+            calibration_mode = (
+                reference.get("calibration_mode")
+                if isinstance(reference, dict)
+                else None
+            )
+
             if not baseline:
                 posture_text = "Posture: not calibrated"
                 posture_color = (0, 255, 255)
+            elif calibration_mode != "FULL":
+                posture_text, posture_color = shoulder_only_status(baseline, upper_body_landmarks)
             elif trunk is None or shoulders is None:
-                posture_text = "Posture: trunk metrics unavailable"
+                posture_text = "Posture: measurements unavailable"
                 posture_color = (0, 255, 255)
             else:
                 inclination = abs(trunk["inclination_change_deg"])
+                lateral_shift = abs(trunk["lateral_shift_norm"])
                 elevation = max(
                     shoulders["left_shoulder_elevation_norm"],
                     shoulders["right_shoulder_elevation_norm"],
                 )
-                if inclination > 10:
-                    posture_text = "Posture: trunk movement detected"
+                if inclination > 10 or lateral_shift > 0.03:
+                    posture_text = "Posture: trunk deviation detected"
                     posture_color = (0, 165, 255)
                 elif elevation > 0.03:
                     posture_text = "Posture: shoulder elevation detected"
@@ -2202,6 +2426,7 @@ finally:
 
     camera.release()
     writer.release()
+    raw_writer.release()
     csv_file.close()
     object_csv_file.close()
     interaction_csv_file.close()
@@ -2215,6 +2440,7 @@ print(f"Pose landmark data saved to: {pose_output_path}")
 
 print("Recording stopped.")
 print(f"Video saved to: {output_path}")
+print(f"Raw video saved to: {raw_video_path}")
 print(f"Landmark data saved to: {landmark_output_path}")
 print(
     f"Interaction data saved to: "
@@ -2222,4 +2448,4 @@ print(
 )
 
 
-play_video(output_path)
+# play_video(output_path)  # Disabled automatic playback

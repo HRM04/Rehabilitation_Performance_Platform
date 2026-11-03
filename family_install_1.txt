@@ -1,0 +1,61 @@
+======== FAMILY MODEL FIT ========
+labelled files: 4 | train frames: 1895 | held-out frames (round 3): 547
+depth   train family accuracy   held-out family accuracy
+1           85.6%                     80.1%
+2           88.3%                     79.5%
+3           90.1%                     77.3%
+4           90.9%                     80.3%
+chosen depth: 4 | held-out family accuracy: 80.3%
+   cylindrical             90.9% of 55 frames in the right family
+   handle                  68.3% of 60 frames in the right family
+   hook                    73.5% of 49 frames in the right family
+   lateral_pinch           81.4% of 43 frames in the right family
+   multidigit_precision    90.2% of 51 frames in the right family
+   pincer                  93.3% of 60 frames in the right family
+   spherical               92.5% of 53 frames in the right family
+   tip_pinch              100.0% of 60 frames in the right family
+   tripod                  89.8% of 59 frames in the right family
+   whole_hand_power        22.8% of 57 frames in the right family
+MODEL ENABLED: True (needs held-out family accuracy of at least 70%)
+  if thumb_index <= 0.236:
+    if side_dist <= 0.335:
+      if aperture <= 0.768:
+        -> POWER (66 frames)
+      else:
+        -> PRECISION (44 frames)
+    else:
+      if angle_little <= 171.71:
+        if angle_little <= 74.376:
+          -> PRECISION (45 frames)
+        else:
+          -> PRECISION (846 frames)
+      else:
+        if angle_ring <= 170.35:
+          -> PRECISION (49 frames)
+        else:
+          -> PRECISION (49 frames)
+  else:
+    if angle_middle <= 83.416:
+      if side_dist <= 0.268:
+        -> POWER (51 frames)
+      else:
+        if thumb_index <= 0.386:
+          -> PRECISION (106 frames)
+        else:
+          -> POWER (45 frames)
+    else:
+      if thumb_index <= 0.369:
+        if side_dist <= 0.478:
+          -> POWER (223 frames)
+        else:
+          -> POWER (120 frames)
+      else:
+        if side_dist <= 0.731:
+          -> POWER (399 frames)
+        else:
+          -> POWER (399 frames)
+
+======== FILE LOCATIONS ========
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/src/grasp/grasp_family.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/tests/test_grasp_family.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/src/grasp/family_model.json

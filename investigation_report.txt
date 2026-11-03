@@ -1,0 +1,1217 @@
+
+====== 0 ENVIRONMENT ======
+  macOS-26.6.1-arm64-arm-64bit | python 3.12.14 | root /Users/pro/Documents/Projects/Rehabilitation Research
+  mediapipe: 0.10.13
+  ultralytics: 8.4.155
+  opencv-python: 5.0.0.93
+  opencv-contrib-python: 5.0.0.93
+  torch: 2.14.0
+  numpy: 2.5.2
+  streamlit: 1.66.1
+  pandas: 3.0.6
+  plotly: 7.1.0
+  pytest: 9.2.0
+
+====== A1 ACQUISITION: camera settings ======
+  src/capture/camera_capture.py:67: CAMERA_INDEX = 0  # Updated below from session configuration
+  src/capture/camera_capture.py:68: WIDTH = 1280
+  src/capture/camera_capture.py:69: HEIGHT = 720
+  src/capture/camera_capture.py:70: FPS = 30
+  src/capture/camera_capture.py:77: CAMERA_INDEX = SESSION_CONFIG.camera_index
+  src/capture/camera_capture.py:78: WIDTH = SESSION_CONFIG.frame_width
+  src/capture/camera_capture.py:79: HEIGHT = SESSION_CONFIG.frame_height
+  src/capture/camera_capture.py:211: camera.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
+  src/capture/camera_capture.py:212: camera.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
+  src/capture/camera_capture.py:213: camera.set(cv2.CAP_PROP_FPS, FPS)
+  src/capture/camera_capture.py:215: actual_width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+  src/capture/camera_capture.py:216: actual_height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+  src/capture/camera_capture.py:217: actual_fps = camera.get(cv2.CAP_PROP_FPS)
+ -- any smoothing / filtering code in the live source:
+  src/assessment/trajectory_movement_quality.py:32: "smoothness": {
+  src/pose/pose_detector.py:11: smooth_landmarks=True,
+  src/game_platform/delivery_dash.py:110: smooth = t * t * (3.0 - 2.0 * t)
+  src/game_platform/delivery_dash.py:113: + (self.scroll_to - self.scroll_from) * smooth
+ -- how a frame with no hand is logged:
+  src/capture/camera_capture.py:19: from src.data.landmark_logger import (create_landmark_logger,log_hand_landmarks,log_no_hand_frame)
+  src/capture/camera_capture.py:31: from src.data.interaction_logger import (create_interaction_logger, log_frame_record, log_no_hand_interaction,)
+  src/capture/camera_capture.py:804: log_no_hand_frame(
+  src/capture/camera_capture.py:811: log_no_hand_interaction(
+  src/data/interaction_logger.py:179: def log_no_hand_interaction(
+  src/data/landmark_logger.py:89: def log_no_hand_frame(
+ -- achieved rates and timing per log:
+ [pose]
+  20260925_221212_pose_landmarks.csv: too few rows
+  20260925_221423_pose_landmarks.csv: frames=115 span=6-120 missing=0 duration=22.1s rate=5.20/s median_gap=200ms max_gap=234ms backward=0
+  20260925_222112_pose_landmarks.csv: frames=4 span=28-31 missing=0 duration=0.5s rate=7.78/s median_gap=166ms max_gap=185ms backward=0
+  20260925_222134_pose_landmarks.csv: frames=131 span=2-140 missing=8 duration=24.8s rate=5.28/s median_gap=167ms max_gap=1682ms backward=0
+  20260925_222932_pose_landmarks.csv: frames=43 span=2-45 missing=1 duration=8.5s rate=5.05/s median_gap=199ms max_gap=417ms backward=0
+  20261008_103635_pose_landmarks.csv: too few rows
+  20261008_103650_pose_landmarks.csv: frames=603 span=1-604 missing=1 duration=127.0s rate=4.75/s median_gap=200ms max_gap=2046ms backward=0
+  20261008_105658_pose_landmarks.csv: too few rows
+  20261008_105929_pose_landmarks.csv: too few rows
+  20261008_105945_pose_landmarks.csv: frames=138 span=1-138 missing=0 duration=23.2s rate=5.95/s median_gap=166ms max_gap=1367ms backward=0
+  20261008_110445_pose_landmarks.csv: frames=545 span=1-546 missing=1 duration=91.6s rate=5.95/s median_gap=167ms max_gap=1676ms backward=0
+  20261008_110703_pose_landmarks.csv: frames=229 span=2-230 missing=0 duration=36.7s rate=6.23/s median_gap=166ms max_gap=321ms backward=0
+  20261008_110902_pose_landmarks.csv: frames=2 span=1-2 missing=0 duration=1.7s rate=1.20/s median_gap=1667ms max_gap=1667ms backward=0
+  20261008_110926_pose_landmarks.csv: frames=89 span=1-89 missing=0 duration=15.2s rate=5.87/s median_gap=166ms max_gap=1405ms backward=0
+  20261008_111159_pose_landmarks.csv: frames=394 span=2-408 missing=13 duration=65.4s rate=6.02/s median_gap=166ms max_gap=1411ms backward=0
+  20261008_111342_pose_landmarks.csv: frames=353 span=1-353 missing=0 duration=57.5s rate=6.14/s median_gap=166ms max_gap=1364ms backward=0
+  20261008_111541_pose_landmarks.csv: frames=64 span=2-65 missing=0 duration=10.0s rate=6.39/s median_gap=166ms max_gap=248ms backward=0
+  20261008_111622_pose_landmarks.csv: frames=97 span=12-108 missing=0 duration=13.6s rate=7.11/s median_gap=134ms max_gap=249ms backward=0
+  20261008_111652_pose_landmarks.csv: frames=46 span=1-46 missing=0 duration=8.6s rate=5.36/s median_gap=167ms max_gap=1261ms backward=0
+  20261008_111721_pose_landmarks.csv: frames=72 span=2-73 missing=0 duration=10.9s rate=6.60/s median_gap=165ms max_gap=254ms backward=0
+  20261008_111748_pose_landmarks.csv: frames=47 span=1-47 missing=0 duration=8.5s rate=5.55/s median_gap=166ms max_gap=1321ms backward=0
+  20261008_111817_pose_landmarks.csv: frames=875 span=1-960 missing=85 duration=144.1s rate=6.07/s median_gap=164ms max_gap=5408ms backward=0
+  20261008_112534_pose_landmarks.csv: too few rows
+  20261008_112544_pose_landmarks.csv: frames=676 span=1-736 missing=60 duration=118.2s rate=5.72/s median_gap=166ms max_gap=8172ms backward=0
+  20261008_113016_pose_landmarks.csv: frames=750 span=22-923 missing=152 duration=132.6s rate=5.65/s median_gap=136ms max_gap=13791ms backward=0
+  20261008_113556_pose_landmarks.csv: frames=583 span=1-583 missing=0 duration=81.2s rate=7.18/s median_gap=133ms max_gap=1533ms backward=0
+  20261008_122147_pose_landmarks.csv: frames=255 span=2-256 missing=0 duration=41.0s rate=6.22/s median_gap=166ms max_gap=245ms backward=0
+  20261008_122723_pose_landmarks.csv: frames=54 span=1-54 missing=0 duration=9.9s rate=5.47/s median_gap=166ms max_gap=1572ms backward=0
+  20261008_130912_pose_landmarks.csv: too few rows
+  20261008_130940_pose_landmarks.csv: too few rows
+  20261008_130951_pose_landmarks.csv: too few rows
+  20261008_131149_pose_landmarks.csv: frames=116 span=1-116 missing=0 duration=21.4s rate=5.42/s median_gap=167ms max_gap=1877ms backward=0
+  20261008_140831_pose_landmarks.csv: too few rows
+  20261008_140845_pose_landmarks.csv: frames=12402 span=2-12959 missing=556 duration=2563.1s rate=4.84/s median_gap=200ms max_gap=13642ms backward=0
+  20261013_192254_pose_landmarks.csv: too few rows
+  20261013_192312_pose_landmarks.csv: frames=161 span=2-162 missing=0 duration=33.5s rate=4.80/s median_gap=200ms max_gap=490ms backward=0
+  20261021_115600_pose_landmarks.csv: frames=256 span=15-278 missing=8 duration=49.0s rate=5.22/s median_gap=197ms max_gap=1384ms backward=0
+  20261021_120001_pose_landmarks.csv: too few rows
+  20261021_120041_pose_landmarks.csv: frames=205 span=2-206 missing=0 duration=41.1s rate=4.99/s median_gap=200ms max_gap=298ms backward=0
+  20261021_122852_pose_landmarks.csv: frames=82 span=4-90 missing=5 duration=16.1s rate=5.09/s median_gap=199ms max_gap=1013ms backward=0
+  20261021_122936_pose_landmarks.csv: too few rows
+  20261021_123011_pose_landmarks.csv: frames=196 span=2-197 missing=0 duration=37.5s rate=5.22/s median_gap=200ms max_gap=321ms backward=0
+  20261021_125646_pose_landmarks.csv: too few rows
+  20261021_125739_pose_landmarks.csv: frames=467 span=2-468 missing=0 duration=89.8s rate=5.20/s median_gap=200ms max_gap=504ms backward=0
+  20261021_131018_pose_landmarks.csv: frames=347 span=6-352 missing=0 duration=66.5s rate=5.21/s median_gap=200ms max_gap=463ms backward=0
+  20261021_131440_pose_landmarks.csv: too few rows
+  20261021_131536_pose_landmarks.csv: frames=171 span=2-172 missing=0 duration=34.0s rate=5.03/s median_gap=200ms max_gap=289ms backward=0
+  20261021_131642_pose_landmarks.csv: frames=392 span=2-393 missing=0 duration=71.6s rate=5.47/s median_gap=167ms max_gap=280ms backward=0
+  20261021_132042_pose_landmarks.csv: frames=77 span=2-78 missing=0 duration=16.1s rate=4.77/s median_gap=200ms max_gap=333ms backward=0
+  20261021_132316_pose_landmarks.csv: frames=126 span=8-133 missing=0 duration=26.3s rate=4.79/s median_gap=200ms max_gap=339ms backward=0
+  20261021_132531_pose_landmarks.csv: frames=287 span=7-293 missing=0 duration=57.5s rate=4.99/s median_gap=168ms max_gap=525ms backward=0
+  20261021_132841_pose_landmarks.csv: frames=196 span=2-197 missing=0 duration=34.2s rate=5.73/s median_gap=167ms max_gap=323ms backward=0
+  20261021_133255_pose_landmarks.csv: frames=312 span=30-341 missing=0 duration=57.4s rate=5.44/s median_gap=167ms max_gap=235ms backward=0
+  20261021_140731_pose_landmarks.csv: frames=436 span=16-463 missing=12 duration=83.4s rate=5.23/s median_gap=199ms max_gap=1515ms backward=0
+  20261021_155348_pose_landmarks.csv: frames=246 span=2-248 missing=1 duration=50.5s rate=4.87/s median_gap=200ms max_gap=513ms backward=0
+  20261021_191741_pose_landmarks.csv: frames=276 span=1-276 missing=0 duration=56.7s rate=4.87/s median_gap=200ms max_gap=2301ms backward=0
+  20261021_212017_pose_landmarks.csv: frames=608 span=2-609 missing=0 duration=123.9s rate=4.91/s median_gap=200ms max_gap=413ms backward=0
+  20261021_212423_pose_landmarks.csv: frames=353 span=2-354 missing=0 duration=72.1s rate=4.90/s median_gap=200ms max_gap=313ms backward=0
+  20261021_213159_pose_landmarks.csv: frames=327 span=2-328 missing=0 duration=67.3s rate=4.86/s median_gap=200ms max_gap=369ms backward=0
+  20261021_214301_pose_landmarks.csv: frames=167 span=2-168 missing=0 duration=34.1s rate=4.89/s median_gap=200ms max_gap=374ms backward=0
+  20261021_214441_pose_landmarks.csv: frames=218 span=1-218 missing=0 duration=46.3s rate=4.71/s median_gap=200ms max_gap=2522ms backward=0
+  20261021_214633_pose_landmarks.csv: frames=244 span=2-245 missing=0 duration=49.2s rate=4.96/s median_gap=200ms max_gap=346ms backward=0
+  20261021_223450_pose_landmarks.csv: frames=251 span=2-252 missing=0 duration=50.2s rate=5.00/s median_gap=200ms max_gap=305ms backward=0
+  20261021_223718_pose_landmarks.csv: frames=238 span=2-239 missing=0 duration=47.1s rate=5.05/s median_gap=200ms max_gap=350ms backward=0
+  20261021_225625_pose_landmarks.csv: frames=449 span=2-450 missing=0 duration=90.3s rate=4.97/s median_gap=200ms max_gap=679ms backward=0
+  20261021_230318_pose_landmarks.csv: frames=370 span=1-370 missing=0 duration=77.9s rate=4.75/s median_gap=200ms max_gap=3212ms backward=0
+  20261021_232421_pose_landmarks.csv: frames=144 span=2-145 missing=0 duration=28.0s rate=5.15/s median_gap=168ms max_gap=678ms backward=0
+  20261021_232533_pose_landmarks.csv: frames=59 span=2-60 missing=0 duration=11.6s rate=5.07/s median_gap=200ms max_gap=307ms backward=0
+  20261021_232850_pose_landmarks.csv: frames=34 span=2-35 missing=0 duration=6.8s rate=5.00/s median_gap=200ms max_gap=334ms backward=0
+  20261021_232919_pose_landmarks.csv: frames=54 span=2-55 missing=0 duration=10.8s rate=5.01/s median_gap=200ms max_gap=291ms backward=0
+  20261021_233230_pose_landmarks.csv: frames=109 span=2-110 missing=0 duration=15.9s rate=6.84/s median_gap=134ms max_gap=605ms backward=0
+  20261021_233647_pose_landmarks.csv: frames=131 span=2-132 missing=0 duration=15.5s rate=8.44/s median_gap=130ms max_gap=310ms backward=0
+  20261021_233943_pose_landmarks.csv: frames=459 span=2-460 missing=0 duration=60.1s rate=7.64/s median_gap=133ms max_gap=202ms backward=0
+  20261022_010410_pose_landmarks.csv: too few rows
+  20261022_010435_pose_landmarks.csv: frames=338 span=2-339 missing=0 duration=35.4s rate=9.56/s median_gap=100ms max_gap=179ms backward=0
+  20261022_135850_pose_landmarks.csv: too few rows
+  20261022_135900_pose_landmarks.csv: too few rows
+  20261022_135914_pose_landmarks.csv: too few rows
+  20261022_140104_pose_landmarks.csv: too few rows
+  20261022_140156_pose_landmarks.csv: too few rows
+  20261022_140422_pose_landmarks.csv: too few rows
+  20261022_140527_pose_landmarks.csv: too few rows
+  20261022_140615_pose_landmarks.csv: frames=107 span=114-220 missing=0 duration=17.0s rate=6.30/s median_gap=133ms max_gap=2533ms backward=0
+  20261022_140850_pose_landmarks.csv: too few rows
+  20261022_140930_pose_landmarks.csv: frames=33 span=107-139 missing=0 duration=7.2s rate=4.56/s median_gap=134ms max_gap=2167ms backward=0
+  20261022_142202_pose_landmarks.csv: frames=92 span=59-150 missing=0 duration=11.3s rate=8.17/s median_gap=100ms max_gap=2264ms backward=0
+  20261022_143144_pose_landmarks.csv: frames=1225 span=113-1338 missing=1 duration=142.9s rate=8.57/s median_gap=101ms max_gap=2134ms backward=0
+  20261022_144355_pose_landmarks.csv: frames=2672 span=121-2797 missing=5 duration=372.0s rate=7.18/s median_gap=133ms max_gap=2132ms backward=0
+  20261027_160051_pose_landmarks.csv: too few rows
+  20261027_160122_pose_landmarks.csv: frames=739 span=256-994 missing=0 duration=94.8s rate=7.80/s median_gap=133ms max_gap=2400ms backward=0
+  20261027_162029_pose_landmarks.csv: too few rows
+  20261027_162105_pose_landmarks.csv: frames=626 span=279-904 missing=0 duration=82.8s rate=7.56/s median_gap=133ms max_gap=2300ms backward=0
+  20261027_162740_pose_landmarks.csv: frames=884 span=882-1766 missing=1 duration=122.2s rate=7.23/s median_gap=133ms max_gap=2199ms backward=0
+  20261027_165248_pose_landmarks.csv: frames=643 span=179-821 missing=0 duration=92.6s rate=6.94/s median_gap=133ms max_gap=2198ms backward=0
+  20261027_170152_pose_landmarks.csv: frames=668 span=94-761 missing=0 duration=92.7s rate=7.20/s median_gap=133ms max_gap=2199ms backward=0
+  20261027_171946_pose_landmarks.csv: frames=441 span=161-601 missing=0 duration=61.8s rate=7.13/s median_gap=133ms max_gap=2166ms backward=0
+  20261027_172323_pose_landmarks.csv: frames=397 span=360-756 missing=0 duration=55.0s rate=7.22/s median_gap=133ms max_gap=2133ms backward=0
+  20261027_173128_pose_landmarks.csv: frames=438 span=379-816 missing=0 duration=58.3s rate=7.51/s median_gap=133ms max_gap=2168ms backward=0
+  20261027_175933_pose_landmarks.csv: frames=371 span=484-854 missing=0 duration=49.2s rate=7.54/s median_gap=133ms max_gap=2435ms backward=0
+  20261027_182452_pose_landmarks.csv: too few rows
+  20261027_193035_pose_landmarks.csv: frames=134 span=160-293 missing=0 duration=20.0s rate=6.69/s median_gap=133ms max_gap=2268ms backward=0
+  20261028_000942_pose_landmarks.csv: frames=580 span=554-1133 missing=0 duration=81.3s rate=7.14/s median_gap=133ms max_gap=2403ms backward=0
+  20261028_002745_pose_landmarks.csv: frames=173 span=143-315 missing=0 duration=26.1s rate=6.63/s median_gap=133ms max_gap=2236ms backward=0
+  20261028_010135_pose_landmarks.csv: frames=224 span=211-434 missing=0 duration=32.9s rate=6.82/s median_gap=133ms max_gap=2440ms backward=0
+  20261028_115313_pose_landmarks.csv: too few rows
+  20261028_115334_pose_landmarks.csv: frames=131 span=742-872 missing=0 duration=20.3s rate=6.46/s median_gap=133ms max_gap=2437ms backward=0
+  20261028_115949_pose_landmarks.csv: frames=190 span=95-290 missing=6 duration=28.3s rate=6.73/s median_gap=133ms max_gap=2231ms backward=0
+  20261028_143427_pose_landmarks.csv: frames=388 span=208-595 missing=0 duration=54.8s rate=7.08/s median_gap=133ms max_gap=2404ms backward=0
+  20261028_143610_pose_landmarks.csv: frames=214 span=179-392 missing=0 duration=31.1s rate=6.88/s median_gap=133ms max_gap=1837ms backward=0
+  20261028_145945_pose_landmarks.csv: frames=471 span=138-608 missing=0 duration=68.0s rate=6.93/s median_gap=134ms max_gap=2202ms backward=0
+  20261028_155156_pose_landmarks.csv: frames=346 span=158-503 missing=0 duration=73.6s rate=4.70/s median_gap=200ms max_gap=2337ms backward=0
+  20261028_155349_pose_landmarks.csv: frames=105 span=45-149 missing=0 duration=23.5s rate=4.47/s median_gap=200ms max_gap=1935ms backward=0
+  20261028_155759_pose_landmarks.csv: frames=279 span=28-306 missing=0 duration=59.1s rate=4.72/s median_gap=200ms max_gap=2370ms backward=0
+  20261028_160359_pose_landmarks.csv: frames=170 span=27-196 missing=0 duration=39.9s rate=4.27/s median_gap=232ms max_gap=2401ms backward=0
+  20261028_160456_pose_landmarks.csv: frames=111 span=24-134 missing=0 duration=26.2s rate=4.24/s median_gap=233ms max_gap=2001ms backward=0
+  20261028_160919_pose_landmarks.csv: frames=88 span=52-139 missing=0 duration=21.5s rate=4.10/s median_gap=232ms max_gap=2368ms backward=0
+  20261028_162245_pose_landmarks.csv: frames=121 span=36-156 missing=0 duration=29.6s rate=4.09/s median_gap=233ms max_gap=2404ms backward=0
+  20261028_162438_pose_landmarks.csv: frames=135 span=21-155 missing=0 duration=33.2s rate=4.06/s median_gap=233ms max_gap=2393ms backward=0
+  20261028_191747_pose_landmarks.csv: frames=132 span=63-194 missing=0 duration=30.7s rate=4.30/s median_gap=228ms max_gap=2367ms backward=0
+  20261028_192438_pose_landmarks.csv: frames=306 span=76-381 missing=0 duration=72.4s rate=4.23/s median_gap=233ms max_gap=2368ms backward=0
+  20261028_192738_pose_landmarks.csv: frames=52 span=16-67 missing=0 duration=13.3s rate=3.92/s median_gap=231ms max_gap=2365ms backward=0
+  20261028_193141_pose_landmarks.csv: frames=130 span=43-172 missing=0 duration=31.1s rate=4.18/s median_gap=233ms max_gap=2401ms backward=0
+  20261028_194300_pose_landmarks.csv: frames=55 span=25-79 missing=0 duration=14.5s rate=3.79/s median_gap=233ms max_gap=2366ms backward=0
+  20261028_204419_pose_landmarks.csv: frames=98 span=19-116 missing=0 duration=24.8s rate=3.95/s median_gap=233ms max_gap=2540ms backward=0
+  20261028_204859_pose_landmarks.csv: frames=195 span=18-212 missing=0 duration=52.6s rate=3.71/s median_gap=233ms max_gap=2304ms backward=0
+  20261028_205535_pose_landmarks.csv: frames=257 span=51-307 missing=0 duration=60.2s rate=4.27/s median_gap=233ms max_gap=2336ms backward=0
+  20261028_212622_pose_landmarks.csv: frames=126 span=88-228 missing=15 duration=20.3s rate=6.22/s median_gap=133ms max_gap=1668ms backward=0
+  20261028_212828_pose_landmarks.csv: frames=1526 span=28-1553 missing=0 duration=191.2s rate=7.98/s median_gap=133ms max_gap=1603ms backward=0
+  20261028_214305_pose_landmarks.csv: frames=575 span=82-656 missing=0 duration=62.3s rate=9.23/s median_gap=100ms max_gap=1632ms backward=0
+  20261028_214702_pose_landmarks.csv: frames=67 span=27-93 missing=0 duration=12.6s rate=5.32/s median_gap=167ms max_gap=1735ms backward=0
+  20261028_214815_pose_landmarks.csv: frames=269 span=36-304 missing=0 duration=46.4s rate=5.80/s median_gap=167ms max_gap=1702ms backward=0
+  20261028_220138_pose_landmarks.csv: frames=366 span=38-494 missing=91 duration=79.1s rate=4.63/s median_gap=167ms max_gap=5976ms backward=0
+  20261028_221355_pose_landmarks.csv: frames=310 span=37-346 missing=0 duration=40.0s rate=7.76/s median_gap=133ms max_gap=1636ms backward=0
+  20261028_221939_pose_landmarks.csv: frames=195 span=21-215 missing=0 duration=34.4s rate=5.68/s median_gap=167ms max_gap=1902ms backward=0
+  20261028_225711_pose_landmarks.csv: frames=28 span=27-54 missing=0 duration=4.8s rate=5.83/s median_gap=133ms max_gap=1635ms backward=0
+  20261029_093741_pose_landmarks.csv: frames=98 span=124-221 missing=0 duration=14.8s rate=6.61/s median_gap=133ms max_gap=2335ms backward=0
+  20261029_093901_pose_landmarks.csv: frames=126 span=17-142 missing=0 duration=22.7s rate=5.56/s median_gap=167ms max_gap=1866ms backward=0
+  20261029_094652_pose_landmarks.csv: frames=119 span=21-139 missing=0 duration=22.1s rate=5.40/s median_gap=167ms max_gap=2302ms backward=0
+  20261029_095025_pose_landmarks.csv: frames=331 span=217-547 missing=0 duration=56.3s rate=5.87/s median_gap=167ms max_gap=2164ms backward=0
+  20261029_095622_pose_landmarks.csv: frames=800 span=1792-2591 missing=0 duration=170.0s rate=4.70/s median_gap=200ms max_gap=2433ms backward=0
+  20261029_100603_pose_landmarks.csv: frames=914 span=480-1395 missing=2 duration=199.3s rate=4.59/s median_gap=201ms max_gap=2400ms backward=0
+  20261029_101052_pose_landmarks.csv: frames=2471 span=443-2914 missing=1 duration=522.3s rate=4.73/s median_gap=200ms max_gap=2400ms backward=0
+  20261029_102127_pose_landmarks.csv: frames=504 span=368-871 missing=0 duration=110.3s rate=4.57/s median_gap=201ms max_gap=2333ms backward=0
+  20261029_102507_pose_landmarks.csv: frames=508 span=221-728 missing=0 duration=110.3s rate=4.61/s median_gap=201ms max_gap=2267ms backward=0
+  20261029_102915_pose_landmarks.csv: frames=658 span=334-991 missing=0 duration=149.4s rate=4.40/s median_gap=233ms max_gap=2335ms backward=0
+  20261029_103326_pose_landmarks.csv: frames=464 span=220-683 missing=0 duration=79.5s rate=5.83/s median_gap=167ms max_gap=2168ms backward=0
+  20261029_103542_pose_landmarks.csv: frames=16973 span=260-26787 missing=9555 duration=3874.2s rate=4.38/s median_gap=134ms max_gap=92509ms backward=0
+  20261029_114846_pose_landmarks.csv: too few rows
+  20261029_114914_pose_landmarks.csv: frames=99 span=47-145 missing=0 duration=25.5s rate=3.88/s median_gap=233ms max_gap=2434ms backward=0
+  20261029_115103_pose_landmarks.csv: frames=131 span=8-138 missing=0 duration=23.6s rate=5.56/s median_gap=167ms max_gap=2300ms backward=0
+  20261029_115322_pose_landmarks.csv: frames=329 span=17-345 missing=0 duration=74.9s rate=4.39/s median_gap=233ms max_gap=2398ms backward=0
+  20261029_115752_pose_landmarks.csv: frames=350 span=6-355 missing=0 duration=80.9s rate=4.32/s median_gap=202ms max_gap=2497ms backward=0
+  20261029_120357_pose_landmarks.csv: frames=329 span=16-344 missing=0 duration=76.4s rate=4.31/s median_gap=233ms max_gap=2433ms backward=0
+  20261029_120542_pose_landmarks.csv: frames=654 span=34-687 missing=0 duration=149.4s rate=4.38/s median_gap=233ms max_gap=2268ms backward=0
+  20261029_120918_pose_landmarks.csv: frames=204 span=18-221 missing=0 duration=47.2s rate=4.32/s median_gap=233ms max_gap=2370ms backward=0
+  20261029_121250_pose_landmarks.csv: frames=1419 span=49-1467 missing=0 duration=315.9s rate=4.49/s median_gap=232ms max_gap=2365ms backward=0
+  20261029_122315_pose_landmarks.csv: frames=1634 span=916-2557 missing=8 duration=379.0s rate=4.31/s median_gap=233ms max_gap=2369ms backward=0
+  20261029_123149_pose_landmarks.csv: frames=3822 span=329-4150 missing=0 duration=653.9s rate=5.85/s median_gap=167ms max_gap=2188ms backward=0
+ [objects]
+  20260922_193330_object_data.csv: too few rows
+  20260922_200848_object_data.csv: frames=358 span=1-358 missing=0 duration=43.3s rate=8.27/s median_gap=101ms max_gap=1994ms backward=0
+  20260922_201401_object_data.csv: frames=13 span=2-32 missing=18 duration=3.0s rate=4.28/s median_gap=200ms max_gap=703ms backward=0
+  20260922_201418_object_data.csv: frames=129 span=1-129 missing=0 duration=17.9s rate=7.20/s median_gap=133ms max_gap=1708ms backward=0
+  20260922_201943_object_data.csv: frames=231 span=1-231 missing=0 duration=31.7s rate=7.28/s median_gap=133ms max_gap=1796ms backward=0
+  20260923_123311_object_data.csv: too few rows
+  20260923_123337_object_data.csv: frames=63 span=1-63 missing=0 duration=9.6s rate=6.54/s median_gap=133ms max_gap=1761ms backward=0
+  20260924_133114_object_data.csv: too few rows
+  20260924_133126_object_data.csv: frames=20 span=1-20 missing=0 duration=3.8s rate=5.27/s median_gap=104ms max_gap=1819ms backward=0
+  20260924_133151_object_data.csv: frames=52 span=1-52 missing=0 duration=7.8s rate=6.67/s median_gap=100ms max_gap=1845ms backward=0
+  20260924_134928_object_data.csv: frames=354 span=1-354 missing=0 duration=46.8s rate=7.56/s median_gap=133ms max_gap=1894ms backward=0
+  20260924_135345_object_data.csv: frames=68 span=1-68 missing=0 duration=13.3s rate=5.10/s median_gap=167ms max_gap=1998ms backward=0
+  20260924_142059_object_data.csv: frames=358 span=1-358 missing=0 duration=72.9s rate=4.91/s median_gap=199ms max_gap=2096ms backward=0
+  20260924_142947_object_data.csv: frames=1348 span=1-1348 missing=0 duration=296.8s rate=4.54/s median_gap=201ms max_gap=2497ms backward=0
+  20260925_202400_object_data.csv: frames=5 span=4-9 missing=1 duration=0.8s rate=6.23/s median_gap=182ms max_gap=302ms backward=0
+  20260925_202415_object_data.csv: frames=105 span=1-105 missing=0 duration=18.9s rate=5.57/s median_gap=166ms max_gap=1832ms backward=0
+  20260925_202852_object_data.csv: frames=478 span=1-479 missing=1 duration=84.1s rate=5.68/s median_gap=167ms max_gap=1965ms backward=0
+  20260925_203620_object_data.csv: frames=519 span=1-519 missing=0 duration=88.9s rate=5.84/s median_gap=167ms max_gap=2431ms backward=0
+  20260925_203859_object_data.csv: frames=251 span=1-251 missing=0 duration=44.0s rate=5.70/s median_gap=167ms max_gap=2098ms backward=0
+  20260925_204345_object_data.csv: frames=220 span=1-220 missing=0 duration=38.2s rate=5.76/s median_gap=167ms max_gap=1864ms backward=0
+  20260925_205107_object_data.csv: frames=579 span=1-579 missing=0 duration=99.0s rate=5.85/s median_gap=167ms max_gap=2015ms backward=0
+  20260925_205334_object_data.csv: frames=7 span=1-7 missing=0 duration=2.9s rate=2.39/s median_gap=200ms max_gap=1841ms backward=0
+  20260925_205702_object_data.csv: frames=514 span=1-514 missing=0 duration=87.0s rate=5.91/s median_gap=167ms max_gap=1998ms backward=0
+  20260925_205923_object_data.csv: frames=308 span=1-308 missing=0 duration=52.6s rate=5.85/s median_gap=167ms max_gap=1933ms backward=0
+  20260925_210203_object_data.csv: frames=72 span=1-72 missing=0 duration=13.8s rate=5.21/s median_gap=167ms max_gap=1966ms backward=0
+  20260925_210601_object_data.csv: frames=88 span=1-88 missing=0 duration=16.4s rate=5.37/s median_gap=167ms max_gap=1964ms backward=0
+  20260925_210802_object_data.csv: frames=118 span=1-118 missing=0 duration=21.3s rate=5.54/s median_gap=166ms max_gap=1963ms backward=0
+  20260925_212141_object_data.csv: frames=169 span=1-169 missing=0 duration=29.0s rate=5.84/s median_gap=166ms max_gap=2039ms backward=0
+  20260925_212231_object_data.csv: frames=108 span=1-108 missing=0 duration=20.0s rate=5.40/s median_gap=167ms max_gap=1800ms backward=0
+  20260925_212414_object_data.csv: frames=131 span=1-131 missing=0 duration=23.7s rate=5.54/s median_gap=167ms max_gap=1864ms backward=0
+  20260925_212548_object_data.csv: frames=116 span=1-116 missing=0 duration=21.1s rate=5.50/s median_gap=167ms max_gap=1967ms backward=0
+  20260925_213938_object_data.csv: frames=111 span=1-111 missing=0 duration=19.0s rate=5.83/s median_gap=166ms max_gap=1965ms backward=0
+  20260925_214322_object_data.csv: frames=39 span=1-39 missing=0 duration=8.5s rate=4.59/s median_gap=167ms max_gap=2132ms backward=0
+  20260925_220340_object_data.csv: frames=36 span=1-36 missing=0 duration=8.5s rate=4.24/s median_gap=199ms max_gap=2071ms backward=0
+  20260925_220410_object_data.csv: frames=129 span=1-129 missing=0 duration=25.3s rate=5.09/s median_gap=168ms max_gap=1973ms backward=0
+  20260925_221212_object_data.csv: too few rows
+  20260925_221423_object_data.csv: frames=120 span=1-120 missing=0 duration=25.0s rate=4.81/s median_gap=200ms max_gap=1975ms backward=0
+  20260925_222112_object_data.csv: frames=21 span=10-31 missing=1 duration=3.7s rate=5.73/s median_gap=170ms max_gap=332ms backward=0
+  20260925_222134_object_data.csv: frames=141 span=1-141 missing=0 duration=26.9s rate=5.24/s median_gap=167ms max_gap=1879ms backward=0
+  20260925_222932_object_data.csv: frames=44 span=1-45 missing=1 duration=10.7s rate=4.13/s median_gap=200ms max_gap=2145ms backward=0
+  20261008_103635_object_data.csv: too few rows
+  20261008_103650_object_data.csv: frames=604 span=1-604 missing=0 duration=127.0s rate=4.76/s median_gap=200ms max_gap=2046ms backward=0
+  20261008_105658_object_data.csv: too few rows
+  20261008_105929_object_data.csv: too few rows
+  20261008_105945_object_data.csv: frames=138 span=1-138 missing=0 duration=23.2s rate=5.95/s median_gap=166ms max_gap=1367ms backward=0
+  20261008_110445_object_data.csv: frames=546 span=1-546 missing=0 duration=91.6s rate=5.96/s median_gap=167ms max_gap=1379ms backward=0
+  20261008_110703_object_data.csv: frames=230 span=1-230 missing=0 duration=38.1s rate=6.03/s median_gap=166ms max_gap=1377ms backward=0
+  20261008_110902_object_data.csv: frames=2 span=1-2 missing=0 duration=1.7s rate=1.20/s median_gap=1667ms max_gap=1667ms backward=0
+  20261008_110926_object_data.csv: frames=89 span=1-89 missing=0 duration=15.2s rate=5.87/s median_gap=166ms max_gap=1405ms backward=0
+  20261008_111159_object_data.csv: frames=408 span=1-408 missing=0 duration=66.8s rate=6.10/s median_gap=166ms max_gap=1421ms backward=0
+  20261008_111342_object_data.csv: frames=353 span=1-353 missing=0 duration=57.5s rate=6.14/s median_gap=166ms max_gap=1364ms backward=0
+  20261008_111541_object_data.csv: frames=65 span=1-65 missing=0 duration=11.5s rate=5.64/s median_gap=166ms max_gap=1511ms backward=0
+  20261008_111622_object_data.csv: frames=108 span=1-108 missing=0 duration=16.6s rate=6.50/s median_gap=134ms max_gap=1447ms backward=0
+  20261008_111652_object_data.csv: frames=46 span=1-46 missing=0 duration=8.6s rate=5.36/s median_gap=167ms max_gap=1261ms backward=0
+  20261008_111721_object_data.csv: frames=73 span=1-73 missing=0 duration=12.3s rate=5.92/s median_gap=166ms max_gap=1423ms backward=0
+  20261008_111748_object_data.csv: frames=47 span=1-47 missing=0 duration=8.5s rate=5.55/s median_gap=166ms max_gap=1321ms backward=0
+  20261008_111817_object_data.csv: frames=960 span=1-960 missing=0 duration=144.1s rate=6.66/s median_gap=135ms max_gap=1330ms backward=0
+  20261008_112534_object_data.csv: too few rows
+  20261008_112544_object_data.csv: frames=736 span=1-736 missing=0 duration=118.2s rate=6.23/s median_gap=166ms max_gap=1290ms backward=0
+  20261008_113016_object_data.csv: frames=923 span=1-923 missing=0 duration=136.9s rate=6.74/s median_gap=134ms max_gap=1436ms backward=0
+  20261008_113556_object_data.csv: frames=583 span=1-583 missing=0 duration=81.2s rate=7.18/s median_gap=133ms max_gap=1533ms backward=0
+  20261008_122147_object_data.csv: frames=256 span=1-256 missing=0 duration=42.6s rate=6.01/s median_gap=166ms max_gap=1600ms backward=0
+  20261008_122723_object_data.csv: frames=54 span=1-54 missing=0 duration=9.9s rate=5.47/s median_gap=166ms max_gap=1572ms backward=0
+  20261008_130912_object_data.csv: too few rows
+  20261008_130940_object_data.csv: too few rows
+  20261008_130951_object_data.csv: too few rows
+  20261008_131149_object_data.csv: frames=116 span=1-116 missing=0 duration=21.4s rate=5.42/s median_gap=167ms max_gap=1877ms backward=0
+  20261008_140831_object_data.csv: too few rows
+  20261008_140845_object_data.csv: frames=12958 span=1-12959 missing=1 duration=2565.0s rate=5.05/s median_gap=200ms max_gap=1862ms backward=0
+  20261013_192254_object_data.csv: too few rows
+  20261013_192312_object_data.csv: frames=162 span=1-162 missing=0 duration=35.8s rate=4.53/s median_gap=200ms max_gap=2252ms backward=0
+  20261021_115600_object_data.csv: frames=271 span=2-278 missing=6 duration=51.6s rate=5.25/s median_gap=196ms max_gap=750ms backward=0
+  20261021_120001_object_data.csv: too few rows
+  20261021_120041_object_data.csv: frames=206 span=1-206 missing=0 duration=43.0s rate=4.79/s median_gap=200ms max_gap=1901ms backward=0
+  20261021_122852_object_data.csv: frames=84 span=4-90 missing=3 duration=16.1s rate=5.22/s median_gap=198ms max_gap=863ms backward=0
+  20261021_122936_object_data.csv: too few rows
+  20261021_123011_object_data.csv: frames=197 span=1-197 missing=0 duration=39.7s rate=4.96/s median_gap=200ms max_gap=2174ms backward=0
+  20261021_125646_object_data.csv: too few rows
+  20261021_125739_object_data.csv: frames=468 span=1-468 missing=0 duration=91.9s rate=5.09/s median_gap=200ms max_gap=2049ms backward=0
+  20261021_131018_object_data.csv: frames=352 span=1-352 missing=0 duration=69.4s rate=5.07/s median_gap=200ms max_gap=1895ms backward=0
+  20261021_131440_object_data.csv: too few rows
+  20261021_131536_object_data.csv: frames=172 span=1-172 missing=0 duration=36.6s rate=4.70/s median_gap=200ms max_gap=2602ms backward=0
+  20261021_131642_object_data.csv: frames=393 span=1-393 missing=0 duration=74.0s rate=5.31/s median_gap=167ms max_gap=2404ms backward=0
+  20261021_132042_object_data.csv: frames=78 span=1-78 missing=0 duration=18.6s rate=4.20/s median_gap=200ms max_gap=2454ms backward=0
+  20261021_132316_object_data.csv: frames=132 span=2-133 missing=0 duration=27.5s rate=4.80/s median_gap=200ms max_gap=339ms backward=0
+  20261021_132531_object_data.csv: frames=293 span=1-293 missing=0 duration=61.4s rate=4.77/s median_gap=168ms max_gap=2357ms backward=0
+  20261021_132841_object_data.csv: frames=197 span=1-197 missing=0 duration=36.5s rate=5.39/s median_gap=167ms max_gap=2314ms backward=0
+  20261021_133255_object_data.csv: frames=341 span=1-341 missing=0 duration=64.5s rate=5.28/s median_gap=167ms max_gap=2076ms backward=0
+  20261021_140731_object_data.csv: frames=463 span=1-463 missing=0 duration=88.2s rate=5.25/s median_gap=199ms max_gap=2231ms backward=0
+  20261021_155348_object_data.csv: frames=248 span=1-248 missing=0 duration=53.0s rate=4.68/s median_gap=200ms max_gap=2488ms backward=0
+  20261021_191741_object_data.csv: frames=276 span=1-276 missing=0 duration=56.7s rate=4.87/s median_gap=200ms max_gap=2301ms backward=0
+  20261021_212017_object_data.csv: frames=609 span=1-609 missing=0 duration=126.3s rate=4.82/s median_gap=200ms max_gap=2348ms backward=0
+  20261021_212423_object_data.csv: frames=354 span=1-354 missing=0 duration=74.7s rate=4.74/s median_gap=200ms max_gap=2667ms backward=0
+  20261021_213159_object_data.csv: frames=327 span=2-328 missing=0 duration=67.3s rate=4.86/s median_gap=200ms max_gap=369ms backward=0
+  20261021_214301_object_data.csv: frames=167 span=2-168 missing=0 duration=34.1s rate=4.89/s median_gap=200ms max_gap=374ms backward=0
+  20261021_214441_object_data.csv: frames=218 span=1-218 missing=0 duration=46.3s rate=4.71/s median_gap=200ms max_gap=2522ms backward=0
+  20261021_214633_object_data.csv: frames=245 span=1-245 missing=0 duration=51.4s rate=4.77/s median_gap=200ms max_gap=2193ms backward=0
+  20261021_223450_object_data.csv: frames=252 span=1-252 missing=0 duration=52.4s rate=4.81/s median_gap=200ms max_gap=2278ms backward=0
+  20261021_223718_object_data.csv: frames=239 span=1-239 missing=0 duration=49.4s rate=4.84/s median_gap=200ms max_gap=2271ms backward=0
+  20261021_225625_object_data.csv: frames=450 span=1-450 missing=0 duration=92.4s rate=4.87/s median_gap=200ms max_gap=2137ms backward=0
+  20261021_230318_object_data.csv: frames=370 span=1-370 missing=0 duration=77.9s rate=4.75/s median_gap=200ms max_gap=3212ms backward=0
+  20261021_232421_object_data.csv: frames=145 span=1-145 missing=0 duration=30.0s rate=4.84/s median_gap=168ms max_gap=2026ms backward=0
+  20261021_232533_object_data.csv: frames=59 span=2-60 missing=0 duration=11.6s rate=5.07/s median_gap=200ms max_gap=307ms backward=0
+  20261021_232850_object_data.csv: frames=35 span=1-35 missing=0 duration=8.8s rate=3.96/s median_gap=200ms max_gap=2037ms backward=0
+  20261021_232919_object_data.csv: frames=55 span=1-55 missing=0 duration=12.8s rate=4.31/s median_gap=200ms max_gap=1994ms backward=0
+  20261021_233230_object_data.csv: frames=110 span=1-110 missing=0 duration=18.0s rate=6.12/s median_gap=134ms max_gap=2040ms backward=0
+  20261021_233647_object_data.csv: frames=132 span=1-132 missing=0 duration=18.1s rate=7.28/s median_gap=130ms max_gap=2608ms backward=0
+  20261021_233943_object_data.csv: frames=460 span=1-460 missing=0 duration=62.7s rate=7.34/s median_gap=133ms max_gap=2607ms backward=0
+  20261022_010410_object_data.csv: too few rows
+  20261022_010435_object_data.csv: frames=339 span=1-339 missing=0 duration=37.6s rate=9.01/s median_gap=100ms max_gap=2245ms backward=0
+  20261022_135850_object_data.csv: too few rows
+  20261022_135900_object_data.csv: too few rows
+  20261022_135914_object_data.csv: too few rows
+  20261022_140104_object_data.csv: too few rows
+  20261022_140156_object_data.csv: too few rows
+  20261022_140422_object_data.csv: too few rows
+  20261022_140527_object_data.csv: too few rows
+  20261022_140615_object_data.csv: frames=107 span=114-220 missing=0 duration=17.0s rate=6.30/s median_gap=133ms max_gap=2533ms backward=0
+  20261022_140850_object_data.csv: too few rows
+  20261022_140930_object_data.csv: frames=33 span=107-139 missing=0 duration=7.2s rate=4.56/s median_gap=134ms max_gap=2167ms backward=0
+  20261022_142202_object_data.csv: frames=92 span=59-150 missing=0 duration=11.3s rate=8.17/s median_gap=100ms max_gap=2264ms backward=0
+  20261022_143144_object_data.csv: frames=1226 span=113-1338 missing=0 duration=142.9s rate=8.58/s median_gap=101ms max_gap=2134ms backward=0
+  20261022_144355_object_data.csv: frames=2676 span=121-2797 missing=1 duration=372.0s rate=7.19/s median_gap=133ms max_gap=2132ms backward=0
+  20261027_160051_object_data.csv: too few rows
+  20261027_160122_object_data.csv: frames=739 span=256-994 missing=0 duration=94.8s rate=7.80/s median_gap=133ms max_gap=2400ms backward=0
+  20261027_162029_object_data.csv: too few rows
+  20261027_162105_object_data.csv: frames=626 span=279-904 missing=0 duration=82.8s rate=7.56/s median_gap=133ms max_gap=2300ms backward=0
+  20261027_162740_object_data.csv: frames=885 span=882-1766 missing=0 duration=122.2s rate=7.24/s median_gap=133ms max_gap=2199ms backward=0
+  20261027_165248_object_data.csv: frames=643 span=179-821 missing=0 duration=92.6s rate=6.94/s median_gap=133ms max_gap=2198ms backward=0
+  20261027_170152_object_data.csv: frames=668 span=94-761 missing=0 duration=92.7s rate=7.20/s median_gap=133ms max_gap=2199ms backward=0
+  20261027_171946_object_data.csv: frames=441 span=161-601 missing=0 duration=61.8s rate=7.13/s median_gap=133ms max_gap=2166ms backward=0
+  20261027_172323_object_data.csv: frames=397 span=360-756 missing=0 duration=55.0s rate=7.22/s median_gap=133ms max_gap=2133ms backward=0
+  20261027_173128_object_data.csv: frames=438 span=379-816 missing=0 duration=58.3s rate=7.51/s median_gap=133ms max_gap=2168ms backward=0
+  20261027_175933_object_data.csv: frames=371 span=484-854 missing=0 duration=49.2s rate=7.54/s median_gap=133ms max_gap=2435ms backward=0
+  20261027_182452_object_data.csv: too few rows
+  20261027_193035_object_data.csv: frames=134 span=160-293 missing=0 duration=20.0s rate=6.69/s median_gap=133ms max_gap=2268ms backward=0
+  20261028_000942_object_data.csv: frames=580 span=554-1133 missing=0 duration=81.3s rate=7.14/s median_gap=133ms max_gap=2403ms backward=0
+  20261028_002745_object_data.csv: frames=173 span=143-315 missing=0 duration=26.1s rate=6.63/s median_gap=133ms max_gap=2236ms backward=0
+  20261028_010135_object_data.csv: frames=224 span=211-434 missing=0 duration=32.9s rate=6.82/s median_gap=133ms max_gap=2440ms backward=0
+  20261028_115313_object_data.csv: too few rows
+  20261028_115334_object_data.csv: frames=131 span=742-872 missing=0 duration=20.3s rate=6.46/s median_gap=133ms max_gap=2437ms backward=0
+  20261028_115949_object_data.csv: frames=196 span=95-290 missing=0 duration=28.3s rate=6.94/s median_gap=133ms max_gap=2231ms backward=0
+  20261028_143427_object_data.csv: frames=388 span=208-595 missing=0 duration=54.8s rate=7.08/s median_gap=133ms max_gap=2404ms backward=0
+  20261028_143610_object_data.csv: frames=214 span=179-392 missing=0 duration=31.1s rate=6.88/s median_gap=133ms max_gap=1837ms backward=0
+  20261028_145945_object_data.csv: frames=471 span=138-608 missing=0 duration=68.0s rate=6.93/s median_gap=134ms max_gap=2202ms backward=0
+  20261028_155156_object_data.csv: frames=346 span=158-503 missing=0 duration=73.6s rate=4.70/s median_gap=200ms max_gap=2337ms backward=0
+  20261028_155349_object_data.csv: frames=105 span=45-149 missing=0 duration=23.5s rate=4.47/s median_gap=200ms max_gap=1935ms backward=0
+  20261028_155759_object_data.csv: frames=279 span=28-306 missing=0 duration=59.1s rate=4.72/s median_gap=200ms max_gap=2370ms backward=0
+  20261028_160359_object_data.csv: frames=170 span=27-196 missing=0 duration=39.9s rate=4.27/s median_gap=232ms max_gap=2401ms backward=0
+  20261028_160456_object_data.csv: frames=111 span=24-134 missing=0 duration=26.2s rate=4.24/s median_gap=233ms max_gap=2001ms backward=0
+  20261028_160919_object_data.csv: frames=88 span=52-139 missing=0 duration=21.5s rate=4.10/s median_gap=232ms max_gap=2368ms backward=0
+  20261028_162245_object_data.csv: frames=121 span=36-156 missing=0 duration=29.6s rate=4.09/s median_gap=233ms max_gap=2404ms backward=0
+  20261028_162438_object_data.csv: frames=135 span=21-155 missing=0 duration=33.2s rate=4.06/s median_gap=233ms max_gap=2393ms backward=0
+  20261028_191747_object_data.csv: frames=132 span=63-194 missing=0 duration=30.7s rate=4.30/s median_gap=228ms max_gap=2367ms backward=0
+  20261028_192438_object_data.csv: frames=306 span=76-381 missing=0 duration=72.4s rate=4.23/s median_gap=233ms max_gap=2368ms backward=0
+  20261028_192738_object_data.csv: frames=52 span=16-67 missing=0 duration=13.3s rate=3.92/s median_gap=231ms max_gap=2365ms backward=0
+  20261028_193141_object_data.csv: frames=130 span=43-172 missing=0 duration=31.1s rate=4.18/s median_gap=233ms max_gap=2401ms backward=0
+  20261028_194300_object_data.csv: frames=55 span=25-79 missing=0 duration=14.5s rate=3.79/s median_gap=233ms max_gap=2366ms backward=0
+  20261028_204419_object_data.csv: frames=98 span=19-116 missing=0 duration=24.8s rate=3.95/s median_gap=233ms max_gap=2540ms backward=0
+  20261028_204859_object_data.csv: frames=195 span=18-212 missing=0 duration=52.6s rate=3.71/s median_gap=233ms max_gap=2304ms backward=0
+  20261028_205535_object_data.csv: frames=257 span=51-307 missing=0 duration=60.2s rate=4.27/s median_gap=233ms max_gap=2336ms backward=0
+  20261028_212622_object_data.csv: frames=141 span=88-228 missing=0 duration=20.3s rate=6.96/s median_gap=133ms max_gap=1668ms backward=0
+  20261028_212828_object_data.csv: frames=1526 span=28-1553 missing=0 duration=191.2s rate=7.98/s median_gap=133ms max_gap=1603ms backward=0
+  20261028_214305_object_data.csv: frames=575 span=82-656 missing=0 duration=62.3s rate=9.23/s median_gap=100ms max_gap=1632ms backward=0
+  20261028_214702_object_data.csv: frames=67 span=27-93 missing=0 duration=12.6s rate=5.32/s median_gap=167ms max_gap=1735ms backward=0
+  20261028_214815_object_data.csv: frames=269 span=36-304 missing=0 duration=46.4s rate=5.80/s median_gap=167ms max_gap=1702ms backward=0
+  20261028_220138_object_data.csv: frames=457 span=38-494 missing=0 duration=79.1s rate=5.78/s median_gap=167ms max_gap=1702ms backward=0
+  20261028_221355_object_data.csv: frames=310 span=37-346 missing=0 duration=40.0s rate=7.76/s median_gap=133ms max_gap=1636ms backward=0
+  20261028_221939_object_data.csv: frames=195 span=21-215 missing=0 duration=34.4s rate=5.68/s median_gap=167ms max_gap=1902ms backward=0
+  20261028_225711_object_data.csv: frames=28 span=27-54 missing=0 duration=4.8s rate=5.83/s median_gap=133ms max_gap=1635ms backward=0
+  20261029_093741_object_data.csv: frames=98 span=124-221 missing=0 duration=14.8s rate=6.61/s median_gap=133ms max_gap=2335ms backward=0
+  20261029_093901_object_data.csv: frames=126 span=17-142 missing=0 duration=22.7s rate=5.56/s median_gap=167ms max_gap=1866ms backward=0
+  20261029_094652_object_data.csv: frames=119 span=21-139 missing=0 duration=22.1s rate=5.40/s median_gap=167ms max_gap=2302ms backward=0
+  20261029_095025_object_data.csv: frames=331 span=217-547 missing=0 duration=56.3s rate=5.87/s median_gap=167ms max_gap=2164ms backward=0
+  20261029_095622_object_data.csv: frames=800 span=1792-2591 missing=0 duration=170.0s rate=4.70/s median_gap=200ms max_gap=2433ms backward=0
+  20261029_100603_object_data.csv: frames=916 span=480-1395 missing=0 duration=199.3s rate=4.60/s median_gap=201ms max_gap=2400ms backward=0
+  20261029_101052_object_data.csv: frames=2472 span=443-2914 missing=0 duration=522.3s rate=4.73/s median_gap=200ms max_gap=2400ms backward=0
+  20261029_102127_object_data.csv: frames=504 span=368-871 missing=0 duration=110.3s rate=4.57/s median_gap=201ms max_gap=2333ms backward=0
+  20261029_102507_object_data.csv: frames=508 span=221-728 missing=0 duration=110.3s rate=4.61/s median_gap=201ms max_gap=2267ms backward=0
+  20261029_102915_object_data.csv: frames=658 span=334-991 missing=0 duration=149.4s rate=4.40/s median_gap=233ms max_gap=2335ms backward=0
+  20261029_103326_object_data.csv: frames=464 span=220-683 missing=0 duration=79.5s rate=5.83/s median_gap=167ms max_gap=2168ms backward=0
+  20261029_103542_object_data.csv: frames=26528 span=260-26787 missing=0 duration=3874.2s rate=6.85/s median_gap=134ms max_gap=2135ms backward=0
+  20261029_114846_object_data.csv: too few rows
+  20261029_114914_object_data.csv: frames=99 span=47-145 missing=0 duration=25.5s rate=3.88/s median_gap=233ms max_gap=2434ms backward=0
+  20261029_115103_object_data.csv: frames=131 span=8-138 missing=0 duration=23.6s rate=5.56/s median_gap=167ms max_gap=2300ms backward=0
+  20261029_115322_object_data.csv: frames=329 span=17-345 missing=0 duration=74.9s rate=4.39/s median_gap=233ms max_gap=2398ms backward=0
+  20261029_115752_object_data.csv: frames=350 span=6-355 missing=0 duration=80.9s rate=4.32/s median_gap=202ms max_gap=2497ms backward=0
+  20261029_120357_object_data.csv: frames=329 span=16-344 missing=0 duration=76.4s rate=4.31/s median_gap=233ms max_gap=2433ms backward=0
+  20261029_120542_object_data.csv: frames=654 span=34-687 missing=0 duration=149.4s rate=4.38/s median_gap=233ms max_gap=2268ms backward=0
+  20261029_120918_object_data.csv: frames=204 span=18-221 missing=0 duration=47.2s rate=4.32/s median_gap=233ms max_gap=2370ms backward=0
+  20261029_121250_object_data.csv: frames=1419 span=49-1467 missing=0 duration=315.9s rate=4.49/s median_gap=232ms max_gap=2365ms backward=0
+  20261029_122315_object_data.csv: frames=1638 span=916-2557 missing=4 duration=379.0s rate=4.32/s median_gap=233ms max_gap=2369ms backward=0
+  20261029_123149_object_data.csv: frames=3822 span=329-4150 missing=0 duration=653.9s rate=5.85/s median_gap=167ms max_gap=2188ms backward=0
+ [interactions]
+  20260918_185402_interaction_data.csv: too few rows
+  20260922_124003_interaction_data.csv: too few rows
+  20260922_124022_interaction_data.csv: frames=81 span=2-86 missing=4 duration=10.9s rate=7.43/s median_gap=133ms max_gap=435ms backward=0
+  20260922_130144_interaction_data.csv: frames=86 span=24-111 missing=2 duration=11.1s rate=7.77/s median_gap=133ms max_gap=233ms backward=0
+  20260922_132359_interaction_data.csv: frames=72 span=1-72 missing=0 duration=10.6s rate=6.82/s median_gap=133ms max_gap=1967ms backward=0
+  20260922_134539_interaction_data.csv: frames=318 span=1-318 missing=0 duration=42.0s rate=7.57/s median_gap=133ms max_gap=1963ms backward=0
+  20260922_134820_interaction_data.csv: frames=104 span=1-104 missing=0 duration=15.1s rate=6.90/s median_gap=133ms max_gap=1966ms backward=0
+  20260922_154131_interaction_data.csv: frames=366 span=1-366 missing=0 duration=47.6s rate=7.68/s median_gap=133ms max_gap=1998ms backward=0
+  20260922_154434_interaction_data.csv: too few rows
+  20260922_155249_interaction_data.csv: frames=313 span=1-313 missing=0 duration=38.9s rate=8.04/s median_gap=133ms max_gap=1829ms backward=0
+  20260922_155625_interaction_data.csv: frames=69 span=1-69 missing=0 duration=10.5s rate=6.57/s median_gap=133ms max_gap=1766ms backward=0
+  20260922_160126_interaction_data.csv: frames=159 span=1-159 missing=0 duration=20.7s rate=7.70/s median_gap=133ms max_gap=1801ms backward=0
+  20260922_160550_interaction_data.csv: frames=189 span=1-189 missing=0 duration=25.4s rate=7.45/s median_gap=133ms max_gap=1769ms backward=0
+  20260922_165004_interaction_data.csv: frames=291 span=1-291 missing=0 duration=36.9s rate=7.88/s median_gap=133ms max_gap=1998ms backward=0
+  20260922_165711_interaction_data.csv: frames=121 span=1-121 missing=0 duration=16.7s rate=7.26/s median_gap=133ms max_gap=1932ms backward=0
+  20260922_184028_interaction_data.csv: frames=286 span=1-286 missing=0 duration=38.2s rate=7.50/s median_gap=133ms max_gap=2064ms backward=0
+  20260922_184303_interaction_data.csv: frames=159 span=1-159 missing=0 duration=20.4s rate=7.80/s median_gap=133ms max_gap=1802ms backward=0
+  20260922_191721_interaction_data.csv: frames=265 span=1-265 missing=0 duration=30.4s rate=8.72/s median_gap=100ms max_gap=1862ms backward=0
+  20260922_193330_interaction_data.csv: frames=35 span=1-35 missing=0 duration=5.4s rate=6.49/s median_gap=100ms max_gap=1989ms backward=0
+  20260922_200848_interaction_data.csv: frames=358 span=1-358 missing=0 duration=43.3s rate=8.27/s median_gap=101ms max_gap=1994ms backward=0
+  20260922_201401_interaction_data.csv: frames=35 span=1-35 missing=0 duration=5.0s rate=7.00/s median_gap=100ms max_gap=1660ms backward=0
+  20260922_201418_interaction_data.csv: frames=129 span=1-129 missing=0 duration=17.9s rate=7.20/s median_gap=133ms max_gap=1708ms backward=0
+  20260922_201943_interaction_data.csv: frames=231 span=1-231 missing=0 duration=31.7s rate=7.28/s median_gap=133ms max_gap=1796ms backward=0
+  20260923_123311_interaction_data.csv: too few rows
+  20260923_123337_interaction_data.csv: frames=63 span=1-63 missing=0 duration=9.6s rate=6.54/s median_gap=133ms max_gap=1761ms backward=0
+  20260924_133114_interaction_data.csv: too few rows
+  20260924_133126_interaction_data.csv: frames=20 span=1-20 missing=0 duration=3.8s rate=5.27/s median_gap=104ms max_gap=1819ms backward=0
+  20260924_133151_interaction_data.csv: frames=51 span=1-51 missing=0 duration=7.7s rate=6.65/s median_gap=100ms max_gap=1845ms backward=0
+  20260924_134928_interaction_data.csv: frames=354 span=1-354 missing=0 duration=46.8s rate=7.56/s median_gap=133ms max_gap=1894ms backward=0
+  20260924_135345_interaction_data.csv: frames=68 span=1-68 missing=0 duration=13.3s rate=5.10/s median_gap=167ms max_gap=1998ms backward=0
+  20260924_142059_interaction_data.csv: frames=358 span=1-358 missing=0 duration=72.9s rate=4.91/s median_gap=199ms max_gap=2096ms backward=0
+  20260924_142947_interaction_data.csv: frames=1348 span=1-1348 missing=0 duration=296.8s rate=4.54/s median_gap=201ms max_gap=2497ms backward=0
+  20260925_202400_interaction_data.csv: frames=14 span=1-14 missing=0 duration=3.9s rate=3.55/s median_gap=163ms max_gap=2021ms backward=0
+  20260925_202415_interaction_data.csv: frames=105 span=1-105 missing=0 duration=18.9s rate=5.57/s median_gap=166ms max_gap=1832ms backward=0
+  20260925_202852_interaction_data.csv: frames=479 span=1-479 missing=0 duration=84.1s rate=5.70/s median_gap=167ms max_gap=1965ms backward=0
+  20260925_203620_interaction_data.csv: frames=519 span=1-519 missing=0 duration=88.9s rate=5.84/s median_gap=167ms max_gap=2431ms backward=0
+  20260925_203859_interaction_data.csv: frames=251 span=1-251 missing=0 duration=44.0s rate=5.70/s median_gap=167ms max_gap=2098ms backward=0
+  20260925_204345_interaction_data.csv: frames=220 span=1-220 missing=0 duration=38.2s rate=5.76/s median_gap=167ms max_gap=1864ms backward=0
+  20260925_205107_interaction_data.csv: frames=579 span=1-579 missing=0 duration=99.0s rate=5.85/s median_gap=167ms max_gap=2015ms backward=0
+  20260925_205334_interaction_data.csv: frames=7 span=1-7 missing=0 duration=2.9s rate=2.39/s median_gap=200ms max_gap=1841ms backward=0
+  20260925_205702_interaction_data.csv: frames=514 span=1-514 missing=0 duration=87.0s rate=5.91/s median_gap=167ms max_gap=1998ms backward=0
+  20260925_205923_interaction_data.csv: frames=308 span=1-308 missing=0 duration=52.6s rate=5.85/s median_gap=167ms max_gap=1933ms backward=0
+  20260925_210203_interaction_data.csv: frames=72 span=1-72 missing=0 duration=13.8s rate=5.21/s median_gap=167ms max_gap=1966ms backward=0
+  20260925_210601_interaction_data.csv: frames=88 span=1-88 missing=0 duration=16.4s rate=5.37/s median_gap=167ms max_gap=1964ms backward=0
+  20260925_210802_interaction_data.csv: frames=118 span=1-118 missing=0 duration=21.3s rate=5.54/s median_gap=166ms max_gap=1963ms backward=0
+  20260925_212141_interaction_data.csv: frames=169 span=1-169 missing=0 duration=29.0s rate=5.84/s median_gap=166ms max_gap=2039ms backward=0
+  20260925_212231_interaction_data.csv: frames=108 span=1-108 missing=0 duration=20.0s rate=5.40/s median_gap=167ms max_gap=1800ms backward=0
+  20260925_212414_interaction_data.csv: frames=131 span=1-131 missing=0 duration=23.7s rate=5.54/s median_gap=167ms max_gap=1864ms backward=0
+  20260925_212548_interaction_data.csv: frames=116 span=1-116 missing=0 duration=21.1s rate=5.50/s median_gap=167ms max_gap=1967ms backward=0
+  20260925_213938_interaction_data.csv: frames=111 span=1-111 missing=0 duration=19.0s rate=5.83/s median_gap=166ms max_gap=1965ms backward=0
+  20260925_214322_interaction_data.csv: frames=39 span=1-39 missing=0 duration=8.5s rate=4.59/s median_gap=167ms max_gap=2132ms backward=0
+  20260925_220340_interaction_data.csv: frames=36 span=1-36 missing=0 duration=8.5s rate=4.24/s median_gap=199ms max_gap=2071ms backward=0
+  20260925_220410_interaction_data.csv: frames=129 span=1-129 missing=0 duration=25.3s rate=5.09/s median_gap=168ms max_gap=1973ms backward=0
+  20260925_221212_interaction_data.csv: too few rows
+  20260925_221423_interaction_data.csv: frames=120 span=1-120 missing=0 duration=25.0s rate=4.81/s median_gap=200ms max_gap=1975ms backward=0
+  20260925_222112_interaction_data.csv: frames=31 span=1-31 missing=0 duration=6.9s rate=4.52/s median_gap=167ms max_gap=1743ms backward=0
+  20260925_222134_interaction_data.csv: frames=141 span=1-141 missing=0 duration=26.9s rate=5.24/s median_gap=167ms max_gap=1879ms backward=0
+  20260925_222932_interaction_data.csv: frames=45 span=1-45 missing=0 duration=10.7s rate=4.22/s median_gap=199ms max_gap=2145ms backward=0
+  20261008_103635_interaction_data.csv: too few rows
+  20261008_103650_interaction_data.csv: frames=604 span=1-604 missing=0 duration=127.0s rate=4.76/s median_gap=200ms max_gap=2046ms backward=0
+  20261008_105658_interaction_data.csv: too few rows
+  20261008_105929_interaction_data.csv: frames=7 span=1-7 missing=0 duration=4.0s rate=1.77/s median_gap=528ms max_gap=1352ms backward=0
+  20261008_105945_interaction_data.csv: frames=138 span=1-138 missing=0 duration=23.2s rate=5.95/s median_gap=166ms max_gap=1367ms backward=0
+  20261008_110445_interaction_data.csv: frames=546 span=1-546 missing=0 duration=91.6s rate=5.96/s median_gap=167ms max_gap=1379ms backward=0
+  20261008_110703_interaction_data.csv: frames=230 span=1-230 missing=0 duration=38.1s rate=6.03/s median_gap=166ms max_gap=1377ms backward=0
+  20261008_110902_interaction_data.csv: frames=2 span=1-2 missing=0 duration=1.7s rate=1.20/s median_gap=1667ms max_gap=1667ms backward=0
+  20261008_110926_interaction_data.csv: frames=89 span=1-89 missing=0 duration=15.2s rate=5.87/s median_gap=166ms max_gap=1405ms backward=0
+  20261008_111159_interaction_data.csv: frames=408 span=1-408 missing=0 duration=66.8s rate=6.10/s median_gap=166ms max_gap=1421ms backward=0
+  20261008_111342_interaction_data.csv: frames=353 span=1-353 missing=0 duration=57.5s rate=6.14/s median_gap=166ms max_gap=1364ms backward=0
+  20261008_111541_interaction_data.csv: frames=65 span=1-65 missing=0 duration=11.5s rate=5.64/s median_gap=166ms max_gap=1511ms backward=0
+  20261008_111622_interaction_data.csv: frames=108 span=1-108 missing=0 duration=16.6s rate=6.50/s median_gap=134ms max_gap=1447ms backward=0
+  20261008_111652_interaction_data.csv: frames=46 span=1-46 missing=0 duration=8.6s rate=5.36/s median_gap=167ms max_gap=1261ms backward=0
+  20261008_111721_interaction_data.csv: frames=73 span=1-73 missing=0 duration=12.3s rate=5.92/s median_gap=166ms max_gap=1423ms backward=0
+  20261008_111748_interaction_data.csv: frames=47 span=1-47 missing=0 duration=8.5s rate=5.55/s median_gap=166ms max_gap=1321ms backward=0
+  20261008_111817_interaction_data.csv: frames=960 span=1-960 missing=0 duration=144.1s rate=6.66/s median_gap=135ms max_gap=1330ms backward=0
+  20261008_112534_interaction_data.csv: too few rows
+  20261008_112544_interaction_data.csv: frames=736 span=1-736 missing=0 duration=118.2s rate=6.23/s median_gap=166ms max_gap=1290ms backward=0
+  20261008_113016_interaction_data.csv: frames=923 span=1-923 missing=0 duration=136.9s rate=6.74/s median_gap=134ms max_gap=1436ms backward=0
+  20261008_113556_interaction_data.csv: frames=583 span=1-583 missing=0 duration=81.2s rate=7.18/s median_gap=133ms max_gap=1533ms backward=0
+  20261008_122147_interaction_data.csv: frames=256 span=1-256 missing=0 duration=42.6s rate=6.01/s median_gap=166ms max_gap=1600ms backward=0
+  20261008_122723_interaction_data.csv: frames=54 span=1-54 missing=0 duration=9.9s rate=5.47/s median_gap=166ms max_gap=1572ms backward=0
+  20261008_130912_interaction_data.csv: too few rows
+  20261008_130940_interaction_data.csv: too few rows
+  20261008_130951_interaction_data.csv: too few rows
+  20261008_131149_interaction_data.csv: frames=116 span=1-116 missing=0 duration=21.4s rate=5.42/s median_gap=167ms max_gap=1877ms backward=0
+  20261008_140831_interaction_data.csv: frames=14 span=1-14 missing=0 duration=3.9s rate=3.60/s median_gap=168ms max_gap=1753ms backward=0
+  20261008_140845_interaction_data.csv: frames=12959 span=1-12959 missing=0 duration=2565.0s rate=5.05/s median_gap=200ms max_gap=1862ms backward=0
+  20261013_192254_interaction_data.csv: frames=11 span=1-11 missing=0 duration=4.4s rate=2.50/s median_gap=245ms max_gap=1987ms backward=0
+  20261013_192312_interaction_data.csv: frames=162 span=1-162 missing=0 duration=35.8s rate=4.53/s median_gap=200ms max_gap=2252ms backward=0
+  20261021_115612_interaction_data.csv: frames=278 span=1-278 missing=0 duration=53.5s rate=5.20/s median_gap=195ms max_gap=1840ms backward=0
+  20261021_120007_interaction_data.csv: frames=2 span=1-2 missing=0 duration=1.9s rate=1.08/s median_gap=1852ms max_gap=1852ms backward=0
+  20261021_120048_interaction_data.csv: frames=206 span=1-206 missing=0 duration=43.0s rate=4.79/s median_gap=200ms max_gap=1901ms backward=0
+  20261021_122856_interaction_data.csv: frames=90 span=1-90 missing=0 duration=18.4s rate=4.88/s median_gap=199ms max_gap=1865ms backward=0
+  20261021_122943_interaction_data.csv: too few rows
+  20261021_123021_interaction_data.csv: frames=197 span=1-197 missing=0 duration=39.7s rate=4.96/s median_gap=200ms max_gap=2174ms backward=0
+  20261021_125651_interaction_data.csv: too few rows
+  20261021_125743_interaction_data.csv: frames=468 span=1-468 missing=0 duration=91.9s rate=5.09/s median_gap=200ms max_gap=2049ms backward=0
+  20261021_131023_interaction_data.csv: frames=352 span=1-352 missing=0 duration=69.4s rate=5.07/s median_gap=200ms max_gap=1895ms backward=0
+  20261021_131444_interaction_data.csv: frames=4 span=1-4 missing=0 duration=2.3s rate=1.76/s median_gap=275ms max_gap=1738ms backward=0
+  20261021_131540_interaction_data.csv: frames=172 span=1-172 missing=0 duration=36.6s rate=4.70/s median_gap=200ms max_gap=2602ms backward=0
+  20261021_131646_interaction_data.csv: frames=393 span=1-393 missing=0 duration=74.0s rate=5.31/s median_gap=167ms max_gap=2404ms backward=0
+  20261021_132046_interaction_data.csv: frames=78 span=1-78 missing=0 duration=18.6s rate=4.20/s median_gap=200ms max_gap=2454ms backward=0
+  20261021_132320_interaction_data.csv: frames=133 span=1-133 missing=0 duration=30.3s rate=4.39/s median_gap=200ms max_gap=2791ms backward=0
+  20261021_132535_interaction_data.csv: frames=293 span=1-293 missing=0 duration=61.4s rate=4.77/s median_gap=168ms max_gap=2357ms backward=0
+  20261021_132845_interaction_data.csv: frames=197 span=1-197 missing=0 duration=36.5s rate=5.39/s median_gap=167ms max_gap=2314ms backward=0
+  20261021_133303_interaction_data.csv: frames=341 span=1-341 missing=0 duration=64.5s rate=5.28/s median_gap=167ms max_gap=2076ms backward=0
+  20261021_140735_interaction_data.csv: frames=463 span=1-463 missing=0 duration=88.2s rate=5.25/s median_gap=199ms max_gap=2231ms backward=0
+  20261021_155354_interaction_data.csv: frames=248 span=1-248 missing=0 duration=53.0s rate=4.68/s median_gap=200ms max_gap=2488ms backward=0
+  20261021_191746_interaction_data.csv: frames=276 span=1-276 missing=0 duration=56.7s rate=4.87/s median_gap=200ms max_gap=2301ms backward=0
+  20261021_212022_interaction_data.csv: frames=609 span=1-609 missing=0 duration=126.3s rate=4.82/s median_gap=200ms max_gap=2348ms backward=0
+  20261021_212429_interaction_data.csv: frames=354 span=1-354 missing=0 duration=74.7s rate=4.74/s median_gap=200ms max_gap=2667ms backward=0
+  20261021_213206_interaction_data.csv: frames=328 span=1-328 missing=0 duration=69.4s rate=4.72/s median_gap=200ms max_gap=2125ms backward=0
+  20261021_214311_interaction_data.csv: frames=168 span=1-168 missing=0 duration=36.4s rate=4.61/s median_gap=200ms max_gap=2284ms backward=0
+  20261021_214446_interaction_data.csv: frames=218 span=1-218 missing=0 duration=46.3s rate=4.71/s median_gap=200ms max_gap=2522ms backward=0
+  20261021_214638_interaction_data.csv: frames=245 span=1-245 missing=0 duration=51.4s rate=4.77/s median_gap=200ms max_gap=2193ms backward=0
+  20261021_223455_interaction_data.csv: frames=252 span=1-252 missing=0 duration=52.4s rate=4.81/s median_gap=200ms max_gap=2278ms backward=0
+  20261021_223722_interaction_data.csv: frames=239 span=1-239 missing=0 duration=49.4s rate=4.84/s median_gap=200ms max_gap=2271ms backward=0
+  20261021_225625_interaction_data.csv: frames=450 span=1-450 missing=0 duration=92.4s rate=4.87/s median_gap=200ms max_gap=2137ms backward=0
+  20261021_230318_interaction_data.csv: frames=370 span=1-370 missing=0 duration=77.9s rate=4.75/s median_gap=200ms max_gap=3212ms backward=0
+  20261021_232421_interaction_data.csv: frames=145 span=1-145 missing=0 duration=30.0s rate=4.84/s median_gap=168ms max_gap=2026ms backward=0
+  20261021_232533_interaction_data.csv: frames=60 span=1-60 missing=0 duration=13.5s rate=4.44/s median_gap=200ms max_gap=1887ms backward=0
+  20261021_232850_interaction_data.csv: frames=35 span=1-35 missing=0 duration=8.8s rate=3.96/s median_gap=200ms max_gap=2037ms backward=0
+  20261021_232919_interaction_data.csv: frames=55 span=1-55 missing=0 duration=12.8s rate=4.31/s median_gap=200ms max_gap=1994ms backward=0
+  20261021_233230_interaction_data.csv: frames=110 span=1-110 missing=0 duration=18.0s rate=6.12/s median_gap=134ms max_gap=2040ms backward=0
+  20261021_233647_interaction_data.csv: frames=132 span=1-132 missing=0 duration=18.1s rate=7.28/s median_gap=130ms max_gap=2608ms backward=0
+  20261021_233943_interaction_data.csv: frames=460 span=1-460 missing=0 duration=62.7s rate=7.34/s median_gap=133ms max_gap=2607ms backward=0
+  20261022_010413_interaction_data.csv: too few rows
+  20261022_010438_interaction_data.csv: frames=339 span=1-339 missing=0 duration=37.6s rate=9.01/s median_gap=100ms max_gap=2245ms backward=0
+  20261022_135850_interaction_data.csv: too few rows
+  20261022_135900_interaction_data.csv: too few rows
+  20261022_135914_interaction_data.csv: too few rows
+  20261022_140104_interaction_data.csv: too few rows
+  20261022_140156_interaction_data.csv: too few rows
+  20261022_140422_interaction_data.csv: too few rows
+  20261022_140527_interaction_data.csv: too few rows
+  20261022_140615_interaction_data.csv: frames=107 span=114-220 missing=0 duration=17.0s rate=6.30/s median_gap=133ms max_gap=2533ms backward=0
+  20261022_140850_interaction_data.csv: too few rows
+  20261022_140930_interaction_data.csv: frames=33 span=107-139 missing=0 duration=7.2s rate=4.56/s median_gap=134ms max_gap=2167ms backward=0
+  20261022_142207_interaction_data.csv: frames=92 span=59-150 missing=0 duration=11.3s rate=8.17/s median_gap=100ms max_gap=2264ms backward=0
+  20261022_143149_interaction_data.csv: frames=1226 span=113-1338 missing=0 duration=142.9s rate=8.58/s median_gap=101ms max_gap=2134ms backward=0
+  20261022_144400_interaction_data.csv: frames=2677 span=121-2797 missing=0 duration=372.0s rate=7.20/s median_gap=133ms max_gap=2132ms backward=0
+  20261027_160056_interaction_data.csv: too few rows
+  20261027_160132_interaction_data.csv: frames=739 span=256-994 missing=0 duration=94.8s rate=7.80/s median_gap=133ms max_gap=2400ms backward=0
+  20261027_162033_interaction_data.csv: too few rows
+  20261027_162111_interaction_data.csv: frames=626 span=279-904 missing=0 duration=82.8s rate=7.56/s median_gap=133ms max_gap=2300ms backward=0
+  20261027_162744_interaction_data.csv: frames=885 span=882-1766 missing=0 duration=122.2s rate=7.24/s median_gap=133ms max_gap=2199ms backward=0
+  20261027_165252_interaction_data.csv: frames=643 span=179-821 missing=0 duration=92.6s rate=6.94/s median_gap=133ms max_gap=2198ms backward=0
+  20261027_170156_interaction_data.csv: frames=668 span=94-761 missing=0 duration=92.7s rate=7.20/s median_gap=133ms max_gap=2199ms backward=0
+  20261027_171951_interaction_data.csv: frames=441 span=161-601 missing=0 duration=61.8s rate=7.13/s median_gap=133ms max_gap=2166ms backward=0
+  20261027_172328_interaction_data.csv: frames=397 span=360-756 missing=0 duration=55.0s rate=7.22/s median_gap=133ms max_gap=2133ms backward=0
+  20261027_173132_interaction_data.csv: frames=438 span=379-816 missing=0 duration=58.3s rate=7.51/s median_gap=133ms max_gap=2168ms backward=0
+  20261027_175937_interaction_data.csv: frames=371 span=484-854 missing=0 duration=49.2s rate=7.54/s median_gap=133ms max_gap=2435ms backward=0
+  20261027_182455_interaction_data.csv: too few rows
+  20261027_193035_interaction_data.csv: frames=134 span=160-293 missing=0 duration=20.0s rate=6.69/s median_gap=133ms max_gap=2268ms backward=0
+  20261028_000942_interaction_data.csv: frames=580 span=554-1133 missing=0 duration=81.3s rate=7.14/s median_gap=133ms max_gap=2403ms backward=0
+  20261028_002750_interaction_data.csv: frames=173 span=143-315 missing=0 duration=26.1s rate=6.63/s median_gap=133ms max_gap=2236ms backward=0
+  20261028_010140_interaction_data.csv: frames=224 span=211-434 missing=0 duration=32.9s rate=6.82/s median_gap=133ms max_gap=2440ms backward=0
+  20261028_115313_interaction_data.csv: too few rows
+  20261028_115334_interaction_data.csv: frames=131 span=742-872 missing=0 duration=20.3s rate=6.46/s median_gap=133ms max_gap=2437ms backward=0
+  20261028_115949_interaction_data.csv: frames=196 span=95-290 missing=0 duration=28.3s rate=6.94/s median_gap=133ms max_gap=2231ms backward=0
+  20261028_143427_interaction_data.csv: frames=388 span=208-595 missing=0 duration=54.8s rate=7.08/s median_gap=133ms max_gap=2404ms backward=0
+  20261028_143610_interaction_data.csv: frames=214 span=179-392 missing=0 duration=31.1s rate=6.88/s median_gap=133ms max_gap=1837ms backward=0
+  20261028_145945_interaction_data.csv: frames=471 span=138-608 missing=0 duration=68.0s rate=6.93/s median_gap=134ms max_gap=2202ms backward=0
+  20261028_155156_interaction_data.csv: frames=346 span=158-503 missing=0 duration=73.6s rate=4.70/s median_gap=200ms max_gap=2337ms backward=0
+  20261028_155349_interaction_data.csv: frames=105 span=45-149 missing=0 duration=23.5s rate=4.47/s median_gap=200ms max_gap=1935ms backward=0
+  20261028_155759_interaction_data.csv: frames=279 span=28-306 missing=0 duration=59.1s rate=4.72/s median_gap=200ms max_gap=2370ms backward=0
+  20261028_160359_interaction_data.csv: frames=170 span=27-196 missing=0 duration=39.9s rate=4.27/s median_gap=232ms max_gap=2401ms backward=0
+  20261028_160456_interaction_data.csv: frames=111 span=24-134 missing=0 duration=26.2s rate=4.24/s median_gap=233ms max_gap=2001ms backward=0
+  20261028_160919_interaction_data.csv: frames=88 span=52-139 missing=0 duration=21.5s rate=4.10/s median_gap=232ms max_gap=2368ms backward=0
+  20261028_162245_interaction_data.csv: frames=121 span=36-156 missing=0 duration=29.6s rate=4.09/s median_gap=233ms max_gap=2404ms backward=0
+  20261028_162438_interaction_data.csv: frames=135 span=21-155 missing=0 duration=33.2s rate=4.06/s median_gap=233ms max_gap=2393ms backward=0
+  20261028_191747_interaction_data.csv: frames=132 span=63-194 missing=0 duration=30.7s rate=4.30/s median_gap=228ms max_gap=2367ms backward=0
+  20261028_192438_interaction_data.csv: frames=306 span=76-381 missing=0 duration=72.4s rate=4.23/s median_gap=233ms max_gap=2368ms backward=0
+  20261028_192738_interaction_data.csv: frames=52 span=16-67 missing=0 duration=13.3s rate=3.92/s median_gap=231ms max_gap=2365ms backward=0
+  20261028_193141_interaction_data.csv: frames=130 span=43-172 missing=0 duration=31.1s rate=4.18/s median_gap=233ms max_gap=2401ms backward=0
+  20261028_194300_interaction_data.csv: frames=55 span=25-79 missing=0 duration=14.5s rate=3.79/s median_gap=233ms max_gap=2366ms backward=0
+  20261028_204419_interaction_data.csv: frames=98 span=19-116 missing=0 duration=24.8s rate=3.95/s median_gap=233ms max_gap=2540ms backward=0
+  20261028_204859_interaction_data.csv: frames=195 span=18-212 missing=0 duration=52.6s rate=3.71/s median_gap=233ms max_gap=2304ms backward=0
+  20261028_205535_interaction_data.csv: frames=257 span=51-307 missing=0 duration=60.2s rate=4.27/s median_gap=233ms max_gap=2336ms backward=0
+  20261028_212627_interaction_data.csv: frames=141 span=88-228 missing=0 duration=20.3s rate=6.96/s median_gap=133ms max_gap=1668ms backward=0
+  20261028_212832_interaction_data.csv: frames=1526 span=28-1553 missing=0 duration=191.2s rate=7.98/s median_gap=133ms max_gap=1603ms backward=0
+  20261028_214310_interaction_data.csv: frames=575 span=82-656 missing=0 duration=62.3s rate=9.23/s median_gap=100ms max_gap=1632ms backward=0
+  20261028_214705_interaction_data.csv: frames=67 span=27-93 missing=0 duration=12.6s rate=5.32/s median_gap=167ms max_gap=1735ms backward=0
+  20261028_214818_interaction_data.csv: frames=269 span=36-304 missing=0 duration=46.4s rate=5.80/s median_gap=167ms max_gap=1702ms backward=0
+  20261028_220143_interaction_data.csv: frames=457 span=38-494 missing=0 duration=79.1s rate=5.78/s median_gap=167ms max_gap=1702ms backward=0
+  20261028_221400_interaction_data.csv: frames=310 span=37-346 missing=0 duration=40.0s rate=7.76/s median_gap=133ms max_gap=1636ms backward=0
+  20261028_221943_interaction_data.csv: frames=195 span=21-215 missing=0 duration=34.4s rate=5.68/s median_gap=167ms max_gap=1902ms backward=0
+  20261028_225714_interaction_data.csv: frames=28 span=27-54 missing=0 duration=4.8s rate=5.83/s median_gap=133ms max_gap=1635ms backward=0
+  20261029_093746_interaction_data.csv: frames=98 span=124-221 missing=0 duration=14.8s rate=6.61/s median_gap=133ms max_gap=2335ms backward=0
+  20261029_093905_interaction_data.csv: frames=126 span=17-142 missing=0 duration=22.7s rate=5.56/s median_gap=167ms max_gap=1866ms backward=0
+  20261029_094656_interaction_data.csv: frames=119 span=21-139 missing=0 duration=22.1s rate=5.40/s median_gap=167ms max_gap=2302ms backward=0
+  20261029_095030_interaction_data.csv: frames=331 span=217-547 missing=0 duration=56.3s rate=5.87/s median_gap=167ms max_gap=2164ms backward=0
+  20261029_095643_interaction_data.csv: frames=800 span=1792-2591 missing=0 duration=170.0s rate=4.70/s median_gap=200ms max_gap=2433ms backward=0
+  20261029_100608_interaction_data.csv: frames=916 span=480-1395 missing=0 duration=199.3s rate=4.60/s median_gap=201ms max_gap=2400ms backward=0
+  20261029_101105_interaction_data.csv: frames=2472 span=443-2914 missing=0 duration=522.3s rate=4.73/s median_gap=200ms max_gap=2400ms backward=0
+  20261029_102131_interaction_data.csv: frames=504 span=368-871 missing=0 duration=110.3s rate=4.57/s median_gap=201ms max_gap=2333ms backward=0
+  20261029_102512_interaction_data.csv: frames=508 span=221-728 missing=0 duration=110.3s rate=4.61/s median_gap=201ms max_gap=2267ms backward=0
+  20261029_102922_interaction_data.csv: frames=658 span=334-991 missing=0 duration=149.4s rate=4.40/s median_gap=233ms max_gap=2335ms backward=0
+  20261029_103330_interaction_data.csv: frames=464 span=220-683 missing=0 duration=79.5s rate=5.83/s median_gap=167ms max_gap=2168ms backward=0
+  20261029_103556_interaction_data.csv: frames=26528 span=260-26787 missing=0 duration=3874.2s rate=6.85/s median_gap=134ms max_gap=2135ms backward=0
+  20261029_114850_interaction_data.csv: too few rows
+  20261029_114917_interaction_data.csv: frames=99 span=47-145 missing=0 duration=25.5s rate=3.88/s median_gap=233ms max_gap=2434ms backward=0
+  20261029_115109_interaction_data.csv: frames=131 span=8-138 missing=0 duration=23.6s rate=5.56/s median_gap=167ms max_gap=2300ms backward=0
+  20261029_115325_interaction_data.csv: frames=329 span=17-345 missing=0 duration=74.9s rate=4.39/s median_gap=233ms max_gap=2398ms backward=0
+  20261029_115755_interaction_data.csv: frames=350 span=6-355 missing=0 duration=80.9s rate=4.32/s median_gap=202ms max_gap=2497ms backward=0
+  20261029_120401_interaction_data.csv: frames=329 span=16-344 missing=0 duration=76.4s rate=4.31/s median_gap=233ms max_gap=2433ms backward=0
+  20261029_120545_interaction_data.csv: frames=654 span=34-687 missing=0 duration=149.4s rate=4.38/s median_gap=233ms max_gap=2268ms backward=0
+  20261029_120922_interaction_data.csv: frames=204 span=18-221 missing=0 duration=47.2s rate=4.32/s median_gap=233ms max_gap=2370ms backward=0
+  20261029_121253_interaction_data.csv: frames=1419 span=49-1467 missing=0 duration=315.9s rate=4.49/s median_gap=232ms max_gap=2365ms backward=0
+  20261029_122322_interaction_data.csv: frames=1641 span=916-2557 missing=1 duration=379.0s rate=4.33/s median_gap=233ms max_gap=2369ms backward=0
+  20261029_123156_interaction_data.csv: frames=3822 span=329-4150 missing=0 duration=653.9s rate=5.85/s median_gap=167ms max_gap=2188ms backward=0
+ [landmarks]
+  20260825_230812_camera_test_landmarks.csv: too few rows
+  20260825_232101_camera_test_landmarks.csv: too few rows
+  20260825_232501_camera_test_landmarks.csv: frames=56 span=10-78 missing=13 duration=0.0s rate=0.00/s median_gap=0ms max_gap=0ms backward=0
+  20260825_234028_camera_test_landmarks.csv: frames=28 span=19-46 missing=0 duration=0.0s rate=14000.00/s median_gap=0ms max_gap=1ms backward=0
+  20260825_234307_camera_test_landmarks.csv: frames=24 span=20-43 missing=0 duration=2.0s rate=12.00/s median_gap=0ms max_gap=1000ms backward=0
+  20260825_234605_camera_test_landmarks.csv: frames=50 span=11-62 missing=2 duration=3.4s rate=14.55/s median_gap=67ms max_gap=135ms backward=0
+  20260825_235011_camera_test_landmarks.csv: too few rows
+  20260825_235320_camera_test_landmarks.csv: frames=267 span=16-284 missing=2 duration=17.9s rate=14.95/s median_gap=67ms max_gap=199ms backward=0
+  20260825_235940_camera_test_landmarks.csv: frames=63 span=9-76 missing=5 duration=4.5s rate=14.10/s median_gap=67ms max_gap=402ms backward=0
+  20260826_001829_camera_test_landmarks.csv: too few rows
+  20260826_002634_camera_test_landmarks.csv: too few rows
+  20260826_002725_camera_test_landmarks.csv: frames=141 span=25-165 missing=0 duration=9.4s rate=15.06/s median_gap=67ms max_gap=101ms backward=0
+  20260826_002834_camera_test_landmarks.csv: frames=185 span=23-242 missing=35 duration=14.6s rate=12.71/s median_gap=67ms max_gap=1831ms backward=0
+  20260826_002948_camera_test_landmarks.csv: frames=239 span=16-299 missing=45 duration=18.7s rate=12.76/s median_gap=67ms max_gap=1866ms backward=0
+  20260826_104635_camera_test_landmarks.csv: too few rows
+  20260826_105122_camera_test_landmarks.csv: too few rows
+  20260826_105140_camera_test_landmarks.csv: frames=204 span=24-246 missing=19 duration=14.8s rate=13.82/s median_gap=67ms max_gap=1299ms backward=0
+  20260826_105218_camera_test_landmarks.csv: frames=165 span=18-182 missing=0 duration=10.9s rate=15.10/s median_gap=67ms max_gap=70ms backward=0
+  20260826_112029_camera_test_landmarks.csv: too few rows
+  20260826_112043_camera_test_landmarks.csv: frames=4698 span=1-5086 missing=388 duration=341.1s rate=13.77/s median_gap=67ms max_gap=4765ms backward=0
+  20260827_230311_camera_test_landmarks.csv: too few rows
+  20260827_230331_camera_test_landmarks.csv: frames=326 span=5-360 missing=30 duration=23.7s rate=13.78/s median_gap=67ms max_gap=1264ms backward=0
+  20260828_003124_camera_test_landmarks.csv: too few rows
+  20260828_003143_camera_test_landmarks.csv: frames=235 span=41-275 missing=0 duration=15.6s rate=15.07/s median_gap=67ms max_gap=70ms backward=0
+  20260828_004619_camera_test_landmarks.csv: too few rows
+  20260828_004638_camera_test_landmarks.csv: too few rows
+  20260828_004953_camera_test_landmarks.csv: frames=74 span=17-97 missing=7 duration=5.3s rate=13.88/s median_gap=67ms max_gap=536ms backward=0
+  20260828_005922_camera_test_landmarks.csv: frames=60 span=25-84 missing=0 duration=3.9s rate=15.26/s median_gap=67ms max_gap=70ms backward=0
+  20260828_011552_camera_test_landmarks.csv: too few rows
+  20260828_011654_camera_test_landmarks.csv: frames=158 span=17-174 missing=0 duration=10.7s rate=14.78/s median_gap=67ms max_gap=103ms backward=0
+  20260828_012118_camera_test_landmarks.csv: frames=26 span=15-40 missing=0 duration=1.7s rate=15.62/s median_gap=67ms max_gap=69ms backward=0
+  20260828_013352_camera_test_landmarks.csv: frames=561 span=19-579 missing=0 duration=37.4s rate=15.02/s median_gap=67ms max_gap=98ms backward=0
+  20260828_014254_camera_test_landmarks.csv: too few rows
+  20260828_014319_camera_test_landmarks.csv: frames=121 span=5-126 missing=1 duration=8.1s rate=15.00/s median_gap=67ms max_gap=134ms backward=0
+  20260909_222656_camera_test_landmarks.csv: frames=198 span=54-268 missing=17 duration=15.3s rate=12.97/s median_gap=67ms max_gap=899ms backward=0
+  20260909_222745_camera_test_landmarks.csv: frames=36 span=21-56 missing=0 duration=2.6s rate=13.85/s median_gap=67ms max_gap=101ms backward=0
+  20260909_222808_camera_test_landmarks.csv: frames=652 span=22-802 missing=129 duration=54.1s rate=12.06/s median_gap=67ms max_gap=2999ms backward=0
+  20260909_223004_camera_test_landmarks.csv: frames=159 span=19-190 missing=13 duration=11.8s rate=13.48/s median_gap=67ms max_gap=934ms backward=0
+  20260909_225943_camera_test_landmarks.csv: too few rows
+  20260909_230000_camera_test_landmarks.csv: frames=185 span=4-229 missing=41 duration=15.6s rate=11.84/s median_gap=67ms max_gap=2500ms backward=0
+  20260909_230112_camera_test_landmarks.csv: frames=770 span=22-896 missing=105 duration=62.7s rate=12.29/s median_gap=67ms max_gap=1732ms backward=0
+  20260909_231506_camera_test_landmarks.csv: frames=478 span=14-580 missing=89 duration=39.8s rate=12.02/s median_gap=67ms max_gap=3965ms backward=0
+  20260909_231730_camera_test_landmarks.csv: frames=122 span=27-160 missing=12 duration=10.4s rate=11.74/s median_gap=68ms max_gap=800ms backward=0
+  20260909_232437_camera_test_landmarks.csv: frames=232 span=19-265 missing=15 duration=17.7s rate=13.11/s median_gap=67ms max_gap=1100ms backward=0
+  20260909_233044_camera_test_landmarks.csv: frames=171 span=29-199 missing=0 duration=11.9s rate=14.33/s median_gap=67ms max_gap=101ms backward=0
+  20260909_233607_camera_test_landmarks.csv: frames=359 span=18-386 missing=10 duration=26.0s rate=13.83/s median_gap=67ms max_gap=600ms backward=0
+  20260909_235738_camera_test_landmarks.csv: frames=230 span=14-243 missing=0 duration=15.7s rate=14.65/s median_gap=67ms max_gap=102ms backward=0
+  20260910_004354_camera_test_landmarks.csv: frames=283 span=18-309 missing=9 duration=21.3s rate=13.31/s median_gap=67ms max_gap=367ms backward=0
+  20260910_011443_camera_test_landmarks.csv: frames=53 span=68-437 missing=317 duration=27.8s rate=1.91/s median_gap=100ms max_gap=21459ms backward=0
+  20260910_141929_camera_test_landmarks.csv: too few rows
+  20260910_141942_camera_test_landmarks.csv: too few rows
+  20260910_142000_camera_test_landmarks.csv: frames=848 span=33-3704 missing=2824 duration=335.4s rate=2.53/s median_gap=103ms max_gap=41349ms backward=0
+  20260917_232612_camera_test_landmarks.csv: too few rows
+  20260917_232638_camera_test_landmarks.csv: frames=223 span=15-493 missing=256 duration=55.7s rate=4.00/s median_gap=133ms max_gap=21892ms backward=0
+  20260918_092731_camera_test_landmarks.csv: too few rows
+  20260918_092746_camera_test_landmarks.csv: too few rows
+  20260918_092801_camera_test_landmarks.csv: too few rows
+  20260918_092814_camera_test_landmarks.csv: too few rows
+  20260918_092954_camera_test_landmarks.csv: frames=284 span=62-428 missing=83 duration=45.6s rate=6.22/s median_gap=133ms max_gap=7532ms backward=0
+  20260918_114029_camera_test_landmarks.csv: too few rows
+  20260918_114228_camera_test_landmarks.csv: frames=35 span=48-82 missing=0 duration=4.5s rate=7.72/s median_gap=133ms max_gap=135ms backward=0
+  20260918_114306_camera_test_landmarks.csv: frames=52 span=9-60 missing=0 duration=6.7s rate=7.73/s median_gap=133ms max_gap=136ms backward=0
+  20260918_114334_camera_test_landmarks.csv: frames=145 span=2-161 missing=15 duration=21.0s rate=6.90/s median_gap=133ms max_gap=1800ms backward=0
+  20260918_114516_camera_test_landmarks.csv: frames=233 span=2-234 missing=0 duration=31.1s rate=7.49/s median_gap=133ms max_gap=235ms backward=0
+  20260918_120834_camera_test_landmarks.csv: frames=76 span=48-123 missing=0 duration=10.0s rate=7.60/s median_gap=133ms max_gap=136ms backward=0
+  20260918_120914_camera_test_landmarks.csv: frames=693 span=16-722 missing=14 duration=92.8s rate=7.47/s median_gap=133ms max_gap=1599ms backward=0
+  20260918_161513_camera_test_landmarks.csv: frames=370 span=2-446 missing=75 duration=58.2s rate=6.36/s median_gap=133ms max_gap=4133ms backward=0
+  20260918_162245_camera_test_landmarks.csv: frames=164 span=2-197 missing=32 duration=24.4s rate=6.71/s median_gap=133ms max_gap=2402ms backward=0
+  20260918_175601_camera_test_landmarks.csv: frames=169 span=2-175 missing=5 duration=22.6s rate=7.48/s median_gap=133ms max_gap=633ms backward=0
+  20260918_180227_camera_test_landmarks.csv: frames=96 span=20-206 missing=91 duration=22.1s rate=4.34/s median_gap=133ms max_gap=7664ms backward=0
+  20260918_185402_camera_test_landmarks.csv: too few rows
+  20260922_124003_camera_test_landmarks.csv: too few rows
+  20260922_124022_camera_test_landmarks.csv: frames=81 span=2-86 missing=4 duration=10.9s rate=7.43/s median_gap=133ms max_gap=435ms backward=0
+  20260922_130144_camera_test_landmarks.csv: frames=119 span=1-119 missing=0 duration=16.6s rate=7.16/s median_gap=133ms max_gap=2161ms backward=0
+  20260922_132359_camera_test_landmarks.csv: frames=72 span=1-72 missing=0 duration=10.6s rate=6.82/s median_gap=133ms max_gap=1967ms backward=0
+  20260922_134539_camera_test_landmarks.csv: frames=318 span=1-318 missing=0 duration=42.0s rate=7.57/s median_gap=133ms max_gap=1963ms backward=0
+  20260922_134820_camera_test_landmarks.csv: frames=104 span=1-104 missing=0 duration=15.1s rate=6.90/s median_gap=133ms max_gap=1966ms backward=0
+  20260922_154131_camera_test_landmarks.csv: frames=366 span=1-366 missing=0 duration=47.6s rate=7.68/s median_gap=133ms max_gap=1998ms backward=0
+  20260922_154434_camera_test_landmarks.csv: too few rows
+  20260922_155249_camera_test_landmarks.csv: frames=313 span=1-313 missing=0 duration=38.9s rate=8.04/s median_gap=133ms max_gap=1829ms backward=0
+  20260922_155625_camera_test_landmarks.csv: frames=69 span=1-69 missing=0 duration=10.5s rate=6.57/s median_gap=133ms max_gap=1766ms backward=0
+  20260922_160126_camera_test_landmarks.csv: frames=159 span=1-159 missing=0 duration=20.7s rate=7.70/s median_gap=133ms max_gap=1801ms backward=0
+  20260922_160550_camera_test_landmarks.csv: frames=189 span=1-189 missing=0 duration=25.4s rate=7.45/s median_gap=133ms max_gap=1769ms backward=0
+  20260922_165004_camera_test_landmarks.csv: frames=291 span=1-291 missing=0 duration=36.9s rate=7.88/s median_gap=133ms max_gap=1998ms backward=0
+  20260922_165711_camera_test_landmarks.csv: frames=121 span=1-121 missing=0 duration=16.7s rate=7.26/s median_gap=133ms max_gap=1932ms backward=0
+  20260922_184028_camera_test_landmarks.csv: frames=286 span=1-286 missing=0 duration=38.2s rate=7.50/s median_gap=133ms max_gap=2064ms backward=0
+  20260922_184303_camera_test_landmarks.csv: frames=159 span=1-159 missing=0 duration=20.4s rate=7.80/s median_gap=133ms max_gap=1802ms backward=0
+  20260922_191721_camera_test_landmarks.csv: frames=265 span=1-265 missing=0 duration=30.4s rate=8.72/s median_gap=100ms max_gap=1862ms backward=0
+  20260922_193330_camera_test_landmarks.csv: frames=35 span=1-35 missing=0 duration=5.4s rate=6.49/s median_gap=100ms max_gap=1989ms backward=0
+  20260922_200848_camera_test_landmarks.csv: frames=358 span=1-358 missing=0 duration=43.3s rate=8.27/s median_gap=101ms max_gap=1994ms backward=0
+  20260922_201401_camera_test_landmarks.csv: frames=35 span=1-35 missing=0 duration=5.0s rate=7.00/s median_gap=100ms max_gap=1660ms backward=0
+  20260922_201418_camera_test_landmarks.csv: frames=129 span=1-129 missing=0 duration=17.9s rate=7.20/s median_gap=133ms max_gap=1708ms backward=0
+  20260922_201943_camera_test_landmarks.csv: frames=231 span=1-231 missing=0 duration=31.7s rate=7.28/s median_gap=133ms max_gap=1796ms backward=0
+  20260923_123311_camera_test_landmarks.csv: too few rows
+  20260923_123337_camera_test_landmarks.csv: frames=63 span=1-63 missing=0 duration=9.6s rate=6.54/s median_gap=133ms max_gap=1761ms backward=0
+  20260924_133114_camera_test_landmarks.csv: too few rows
+  20260924_133126_camera_test_landmarks.csv: frames=20 span=1-20 missing=0 duration=3.8s rate=5.27/s median_gap=104ms max_gap=1819ms backward=0
+  20260924_133151_camera_test_landmarks.csv: frames=51 span=1-51 missing=0 duration=7.7s rate=6.65/s median_gap=100ms max_gap=1845ms backward=0
+  20260924_134928_camera_test_landmarks.csv: frames=354 span=1-354 missing=0 duration=46.8s rate=7.56/s median_gap=133ms max_gap=1894ms backward=0
+  20260924_135345_camera_test_landmarks.csv: frames=68 span=1-68 missing=0 duration=13.3s rate=5.10/s median_gap=167ms max_gap=1998ms backward=0
+  20260924_142059_camera_test_landmarks.csv: frames=358 span=1-358 missing=0 duration=72.9s rate=4.91/s median_gap=199ms max_gap=2096ms backward=0
+  20260924_142947_camera_test_landmarks.csv: frames=1348 span=1-1348 missing=0 duration=296.8s rate=4.54/s median_gap=201ms max_gap=2497ms backward=0
+  20260925_202400_camera_test_landmarks.csv: frames=14 span=1-14 missing=0 duration=3.9s rate=3.55/s median_gap=163ms max_gap=2021ms backward=0
+  20260925_202415_camera_test_landmarks.csv: frames=105 span=1-105 missing=0 duration=18.9s rate=5.57/s median_gap=166ms max_gap=1832ms backward=0
+  20260925_202852_camera_test_landmarks.csv: frames=479 span=1-479 missing=0 duration=84.1s rate=5.70/s median_gap=167ms max_gap=1965ms backward=0
+  20260925_203620_camera_test_landmarks.csv: frames=519 span=1-519 missing=0 duration=88.9s rate=5.84/s median_gap=167ms max_gap=2431ms backward=0
+  20260925_203859_camera_test_landmarks.csv: frames=251 span=1-251 missing=0 duration=44.0s rate=5.70/s median_gap=167ms max_gap=2098ms backward=0
+  20260925_204345_camera_test_landmarks.csv: frames=220 span=1-220 missing=0 duration=38.2s rate=5.76/s median_gap=167ms max_gap=1864ms backward=0
+  20260925_205107_camera_test_landmarks.csv: frames=579 span=1-579 missing=0 duration=99.0s rate=5.85/s median_gap=167ms max_gap=2015ms backward=0
+  20260925_205334_camera_test_landmarks.csv: frames=7 span=1-7 missing=0 duration=2.9s rate=2.39/s median_gap=200ms max_gap=1841ms backward=0
+  20260925_205702_camera_test_landmarks.csv: frames=514 span=1-514 missing=0 duration=87.0s rate=5.91/s median_gap=167ms max_gap=1998ms backward=0
+  20260925_205923_camera_test_landmarks.csv: frames=308 span=1-308 missing=0 duration=52.6s rate=5.85/s median_gap=167ms max_gap=1933ms backward=0
+  20260925_210203_camera_test_landmarks.csv: frames=72 span=1-72 missing=0 duration=13.8s rate=5.21/s median_gap=167ms max_gap=1966ms backward=0
+  20260925_210601_camera_test_landmarks.csv: frames=88 span=1-88 missing=0 duration=16.4s rate=5.37/s median_gap=167ms max_gap=1964ms backward=0
+  20260925_210802_camera_test_landmarks.csv: frames=118 span=1-118 missing=0 duration=21.3s rate=5.54/s median_gap=166ms max_gap=1963ms backward=0
+  20260925_212141_camera_test_landmarks.csv: frames=169 span=1-169 missing=0 duration=29.0s rate=5.84/s median_gap=166ms max_gap=2039ms backward=0
+  20260925_212231_camera_test_landmarks.csv: frames=108 span=1-108 missing=0 duration=20.0s rate=5.40/s median_gap=167ms max_gap=1800ms backward=0
+  20260925_212414_camera_test_landmarks.csv: frames=131 span=1-131 missing=0 duration=23.7s rate=5.54/s median_gap=167ms max_gap=1864ms backward=0
+  20260925_212548_camera_test_landmarks.csv: frames=116 span=1-116 missing=0 duration=21.1s rate=5.50/s median_gap=167ms max_gap=1967ms backward=0
+  20260925_213938_camera_test_landmarks.csv: frames=111 span=1-111 missing=0 duration=19.0s rate=5.83/s median_gap=166ms max_gap=1965ms backward=0
+  20260925_214322_camera_test_landmarks.csv: frames=39 span=1-39 missing=0 duration=8.5s rate=4.59/s median_gap=167ms max_gap=2132ms backward=0
+  20260925_220340_camera_test_landmarks.csv: frames=36 span=1-36 missing=0 duration=8.5s rate=4.24/s median_gap=199ms max_gap=2071ms backward=0
+  20260925_220410_camera_test_landmarks.csv: frames=129 span=1-129 missing=0 duration=25.3s rate=5.09/s median_gap=168ms max_gap=1973ms backward=0
+  20260925_221212_camera_test_landmarks.csv: too few rows
+  20260925_221423_camera_test_landmarks.csv: frames=120 span=1-120 missing=0 duration=25.0s rate=4.81/s median_gap=200ms max_gap=1975ms backward=0
+  20260925_222112_camera_test_landmarks.csv: frames=31 span=1-31 missing=0 duration=6.9s rate=4.52/s median_gap=167ms max_gap=1743ms backward=0
+  20260925_222134_camera_test_landmarks.csv: frames=141 span=1-141 missing=0 duration=26.9s rate=5.24/s median_gap=167ms max_gap=1879ms backward=0
+  20260925_222932_camera_test_landmarks.csv: frames=45 span=1-45 missing=0 duration=10.7s rate=4.22/s median_gap=199ms max_gap=2145ms backward=0
+  20261008_103635_camera_test_landmarks.csv: too few rows
+  20261008_103650_camera_test_landmarks.csv: frames=604 span=1-604 missing=0 duration=127.0s rate=4.76/s median_gap=200ms max_gap=2046ms backward=0
+  20261008_105658_camera_test_landmarks.csv: too few rows
+  20261008_105929_camera_test_landmarks.csv: frames=7 span=1-7 missing=0 duration=4.0s rate=1.77/s median_gap=528ms max_gap=1352ms backward=0
+  20261008_105945_camera_test_landmarks.csv: frames=138 span=1-138 missing=0 duration=23.2s rate=5.95/s median_gap=166ms max_gap=1367ms backward=0
+  20261008_110445_camera_test_landmarks.csv: frames=546 span=1-546 missing=0 duration=91.6s rate=5.96/s median_gap=167ms max_gap=1379ms backward=0
+  20261008_110703_camera_test_landmarks.csv: frames=230 span=1-230 missing=0 duration=38.1s rate=6.03/s median_gap=166ms max_gap=1377ms backward=0
+  20261008_110902_camera_test_landmarks.csv: too few rows
+  20261008_110926_camera_test_landmarks.csv: frames=89 span=1-89 missing=0 duration=15.2s rate=5.87/s median_gap=166ms max_gap=1405ms backward=0
+  20261008_111159_camera_test_landmarks.csv: frames=408 span=1-408 missing=0 duration=66.8s rate=6.10/s median_gap=166ms max_gap=1421ms backward=0
+  20261008_111342_camera_test_landmarks.csv: frames=353 span=1-353 missing=0 duration=57.5s rate=6.14/s median_gap=166ms max_gap=1364ms backward=0
+  20261008_111541_camera_test_landmarks.csv: frames=65 span=1-65 missing=0 duration=11.5s rate=5.64/s median_gap=166ms max_gap=1511ms backward=0
+  20261008_111622_camera_test_landmarks.csv: frames=108 span=1-108 missing=0 duration=16.6s rate=6.50/s median_gap=134ms max_gap=1447ms backward=0
+  20261008_111652_camera_test_landmarks.csv: frames=46 span=1-46 missing=0 duration=8.6s rate=5.36/s median_gap=167ms max_gap=1261ms backward=0
+  20261008_111721_camera_test_landmarks.csv: frames=73 span=1-73 missing=0 duration=12.3s rate=5.92/s median_gap=166ms max_gap=1423ms backward=0
+  20261008_111748_camera_test_landmarks.csv: frames=47 span=1-47 missing=0 duration=8.5s rate=5.55/s median_gap=166ms max_gap=1321ms backward=0
+  20261008_111817_camera_test_landmarks.csv: frames=960 span=1-960 missing=0 duration=144.1s rate=6.66/s median_gap=135ms max_gap=1330ms backward=0
+  20261008_112534_camera_test_landmarks.csv: too few rows
+  20261008_112544_camera_test_landmarks.csv: frames=736 span=1-736 missing=0 duration=118.2s rate=6.23/s median_gap=166ms max_gap=1290ms backward=0
+  20261008_113016_camera_test_landmarks.csv: frames=923 span=1-923 missing=0 duration=136.9s rate=6.74/s median_gap=134ms max_gap=1436ms backward=0
+  20261008_113556_camera_test_landmarks.csv: frames=583 span=1-583 missing=0 duration=81.2s rate=7.18/s median_gap=133ms max_gap=1533ms backward=0
+  20261008_122147_camera_test_landmarks.csv: frames=256 span=1-256 missing=0 duration=42.6s rate=6.01/s median_gap=166ms max_gap=1600ms backward=0
+  20261008_122723_camera_test_landmarks.csv: frames=54 span=1-54 missing=0 duration=9.9s rate=5.47/s median_gap=166ms max_gap=1572ms backward=0
+  20261008_130912_camera_test_landmarks.csv: too few rows
+  20261008_130940_camera_test_landmarks.csv: too few rows
+  20261008_130951_camera_test_landmarks.csv: too few rows
+  20261008_131149_camera_test_landmarks.csv: frames=116 span=1-116 missing=0 duration=21.4s rate=5.42/s median_gap=167ms max_gap=1877ms backward=0
+  20261008_140831_camera_test_landmarks.csv: frames=14 span=1-14 missing=0 duration=3.9s rate=3.60/s median_gap=168ms max_gap=1753ms backward=0
+  20261008_140845_camera_test_landmarks.csv: frames=12959 span=1-12959 missing=0 duration=2565.0s rate=5.05/s median_gap=200ms max_gap=1862ms backward=0
+  20261013_192254_camera_test_landmarks.csv: frames=11 span=1-11 missing=0 duration=4.4s rate=2.50/s median_gap=245ms max_gap=1987ms backward=0
+  20261013_192312_camera_test_landmarks.csv: frames=162 span=1-162 missing=0 duration=35.8s rate=4.53/s median_gap=200ms max_gap=2252ms backward=0
+  20261021_115612_camera_test_landmarks.csv: frames=278 span=1-278 missing=0 duration=53.5s rate=5.20/s median_gap=195ms max_gap=1840ms backward=0
+  20261021_120007_camera_test_landmarks.csv: frames=2 span=1-2 missing=0 duration=1.9s rate=1.08/s median_gap=1852ms max_gap=1852ms backward=0
+  20261021_120048_camera_test_landmarks.csv: frames=206 span=1-206 missing=0 duration=43.0s rate=4.79/s median_gap=200ms max_gap=1901ms backward=0
+  20261021_122856_camera_test_landmarks.csv: frames=90 span=1-90 missing=0 duration=18.4s rate=4.88/s median_gap=199ms max_gap=1865ms backward=0
+  20261021_122943_camera_test_landmarks.csv: too few rows
+  20261021_123021_camera_test_landmarks.csv: frames=197 span=1-197 missing=0 duration=39.7s rate=4.96/s median_gap=200ms max_gap=2174ms backward=0
+  20261021_125651_camera_test_landmarks.csv: too few rows
+  20261021_125743_camera_test_landmarks.csv: frames=468 span=1-468 missing=0 duration=91.9s rate=5.09/s median_gap=200ms max_gap=2049ms backward=0
+  20261021_131023_camera_test_landmarks.csv: frames=352 span=1-352 missing=0 duration=69.4s rate=5.07/s median_gap=200ms max_gap=1895ms backward=0
+  20261021_131444_camera_test_landmarks.csv: frames=4 span=1-4 missing=0 duration=2.3s rate=1.76/s median_gap=275ms max_gap=1738ms backward=0
+  20261021_131540_camera_test_landmarks.csv: frames=172 span=1-172 missing=0 duration=36.6s rate=4.70/s median_gap=200ms max_gap=2602ms backward=0
+  20261021_131646_camera_test_landmarks.csv: frames=393 span=1-393 missing=0 duration=74.0s rate=5.31/s median_gap=167ms max_gap=2404ms backward=0
+  20261021_132046_camera_test_landmarks.csv: frames=78 span=1-78 missing=0 duration=18.6s rate=4.20/s median_gap=200ms max_gap=2454ms backward=0
+  20261021_132320_camera_test_landmarks.csv: frames=133 span=1-133 missing=0 duration=30.3s rate=4.39/s median_gap=200ms max_gap=2791ms backward=0
+  20261021_132535_camera_test_landmarks.csv: frames=293 span=1-293 missing=0 duration=61.4s rate=4.77/s median_gap=168ms max_gap=2357ms backward=0
+  20261021_132845_camera_test_landmarks.csv: frames=197 span=1-197 missing=0 duration=36.5s rate=5.39/s median_gap=167ms max_gap=2314ms backward=0
+  20261021_133303_camera_test_landmarks.csv: frames=341 span=1-341 missing=0 duration=64.5s rate=5.28/s median_gap=167ms max_gap=2076ms backward=0
+  20261021_140735_camera_test_landmarks.csv: frames=463 span=1-463 missing=0 duration=88.2s rate=5.25/s median_gap=199ms max_gap=2231ms backward=0
+  20261021_155354_camera_test_landmarks.csv: frames=248 span=1-248 missing=0 duration=53.0s rate=4.68/s median_gap=200ms max_gap=2488ms backward=0
+  20261021_191746_camera_test_landmarks.csv: frames=276 span=1-276 missing=0 duration=56.7s rate=4.87/s median_gap=200ms max_gap=2301ms backward=0
+  20261021_212022_camera_test_landmarks.csv: frames=609 span=1-609 missing=0 duration=126.3s rate=4.82/s median_gap=200ms max_gap=2348ms backward=0
+  20261021_212429_camera_test_landmarks.csv: frames=354 span=1-354 missing=0 duration=74.7s rate=4.74/s median_gap=200ms max_gap=2667ms backward=0
+  20261021_213206_camera_test_landmarks.csv: frames=328 span=1-328 missing=0 duration=69.4s rate=4.72/s median_gap=200ms max_gap=2125ms backward=0
+  20261021_214311_camera_test_landmarks.csv: frames=168 span=1-168 missing=0 duration=36.4s rate=4.61/s median_gap=200ms max_gap=2284ms backward=0
+  20261021_214446_camera_test_landmarks.csv: frames=218 span=1-218 missing=0 duration=46.3s rate=4.71/s median_gap=200ms max_gap=2522ms backward=0
+  20261021_214638_camera_test_landmarks.csv: frames=245 span=1-245 missing=0 duration=51.4s rate=4.77/s median_gap=200ms max_gap=2193ms backward=0
+  20261021_223455_camera_test_landmarks.csv: frames=252 span=1-252 missing=0 duration=52.4s rate=4.81/s median_gap=200ms max_gap=2278ms backward=0
+  20261021_223722_camera_test_landmarks.csv: frames=239 span=1-239 missing=0 duration=49.4s rate=4.84/s median_gap=200ms max_gap=2271ms backward=0
+  20261021_225625_camera_test_landmarks.csv: frames=450 span=1-450 missing=0 duration=92.4s rate=4.87/s median_gap=200ms max_gap=2137ms backward=0
+  20261021_230318_camera_test_landmarks.csv: frames=370 span=1-370 missing=0 duration=77.9s rate=4.75/s median_gap=200ms max_gap=3212ms backward=0
+  20261021_232421_camera_test_landmarks.csv: frames=145 span=1-145 missing=0 duration=30.0s rate=4.84/s median_gap=168ms max_gap=2026ms backward=0
+  20261021_232533_camera_test_landmarks.csv: frames=60 span=1-60 missing=0 duration=13.5s rate=4.44/s median_gap=200ms max_gap=1887ms backward=0
+  20261021_232850_camera_test_landmarks.csv: frames=35 span=1-35 missing=0 duration=8.8s rate=3.96/s median_gap=200ms max_gap=2037ms backward=0
+  20261021_232919_camera_test_landmarks.csv: frames=55 span=1-55 missing=0 duration=12.8s rate=4.31/s median_gap=200ms max_gap=1994ms backward=0
+  20261021_233230_camera_test_landmarks.csv: frames=110 span=1-110 missing=0 duration=18.0s rate=6.12/s median_gap=134ms max_gap=2040ms backward=0
+  20261021_233647_camera_test_landmarks.csv: frames=132 span=1-132 missing=0 duration=18.1s rate=7.28/s median_gap=130ms max_gap=2608ms backward=0
+  20261021_233943_camera_test_landmarks.csv: frames=460 span=1-460 missing=0 duration=62.7s rate=7.34/s median_gap=133ms max_gap=2607ms backward=0
+  20261022_010413_camera_test_landmarks.csv: too few rows
+  20261022_010438_camera_test_landmarks.csv: frames=339 span=1-339 missing=0 duration=37.6s rate=9.01/s median_gap=100ms max_gap=2245ms backward=0
+  20261022_135850_camera_test_landmarks.csv: too few rows
+  20261022_135900_camera_test_landmarks.csv: too few rows
+  20261022_135914_camera_test_landmarks.csv: too few rows
+  20261022_140104_camera_test_landmarks.csv: too few rows
+  20261022_140156_camera_test_landmarks.csv: too few rows
+  20261022_140422_camera_test_landmarks.csv: too few rows
+  20261022_140527_camera_test_landmarks.csv: too few rows
+  20261022_140615_camera_test_landmarks.csv: frames=107 span=114-220 missing=0 duration=17.0s rate=6.30/s median_gap=133ms max_gap=2533ms backward=0
+  20261022_140850_camera_test_landmarks.csv: too few rows
+  20261022_140930_camera_test_landmarks.csv: frames=33 span=107-139 missing=0 duration=7.2s rate=4.56/s median_gap=134ms max_gap=2167ms backward=0
+  20261022_142207_camera_test_landmarks.csv: frames=92 span=59-150 missing=0 duration=11.3s rate=8.17/s median_gap=100ms max_gap=2264ms backward=0
+  20261022_143149_camera_test_landmarks.csv: frames=1226 span=113-1338 missing=0 duration=142.9s rate=8.58/s median_gap=101ms max_gap=2134ms backward=0
+  20261022_144400_camera_test_landmarks.csv: frames=2677 span=121-2797 missing=0 duration=372.0s rate=7.20/s median_gap=133ms max_gap=2132ms backward=0
+  20261027_160056_camera_test_landmarks.csv: too few rows
+  20261027_160132_camera_test_landmarks.csv: frames=739 span=256-994 missing=0 duration=94.8s rate=7.80/s median_gap=133ms max_gap=2400ms backward=0
+  20261027_162033_camera_test_landmarks.csv: too few rows
+  20261027_162111_camera_test_landmarks.csv: frames=626 span=279-904 missing=0 duration=82.8s rate=7.56/s median_gap=133ms max_gap=2300ms backward=0
+  20261027_162744_camera_test_landmarks.csv: frames=885 span=882-1766 missing=0 duration=122.2s rate=7.24/s median_gap=133ms max_gap=2199ms backward=0
+  20261027_165252_camera_test_landmarks.csv: frames=643 span=179-821 missing=0 duration=92.6s rate=6.94/s median_gap=133ms max_gap=2198ms backward=0
+  20261027_170156_camera_test_landmarks.csv: frames=668 span=94-761 missing=0 duration=92.7s rate=7.20/s median_gap=133ms max_gap=2199ms backward=0
+  20261027_171951_camera_test_landmarks.csv: frames=441 span=161-601 missing=0 duration=61.8s rate=7.13/s median_gap=133ms max_gap=2166ms backward=0
+  20261027_172328_camera_test_landmarks.csv: frames=397 span=360-756 missing=0 duration=55.0s rate=7.22/s median_gap=133ms max_gap=2133ms backward=0
+  20261027_173132_camera_test_landmarks.csv: frames=438 span=379-816 missing=0 duration=58.3s rate=7.51/s median_gap=133ms max_gap=2168ms backward=0
+  20261027_175937_camera_test_landmarks.csv: frames=371 span=484-854 missing=0 duration=49.2s rate=7.54/s median_gap=133ms max_gap=2435ms backward=0
+  20261027_182455_camera_test_landmarks.csv: too few rows
+  20261027_193035_camera_test_landmarks.csv: frames=134 span=160-293 missing=0 duration=20.0s rate=6.69/s median_gap=133ms max_gap=2268ms backward=0
+  20261028_000942_camera_test_landmarks.csv: frames=580 span=554-1133 missing=0 duration=81.3s rate=7.14/s median_gap=133ms max_gap=2403ms backward=0
+  20261028_002750_camera_test_landmarks.csv: frames=173 span=143-315 missing=0 duration=26.1s rate=6.63/s median_gap=133ms max_gap=2236ms backward=0
+  20261028_010140_camera_test_landmarks.csv: frames=224 span=211-434 missing=0 duration=32.9s rate=6.82/s median_gap=133ms max_gap=2440ms backward=0
+  20261028_115313_camera_test_landmarks.csv: too few rows
+  20261028_115334_camera_test_landmarks.csv: frames=131 span=742-872 missing=0 duration=20.3s rate=6.46/s median_gap=133ms max_gap=2437ms backward=0
+  20261028_115949_camera_test_landmarks.csv: frames=196 span=95-290 missing=0 duration=28.3s rate=6.94/s median_gap=133ms max_gap=2231ms backward=0
+  20261028_143427_camera_test_landmarks.csv: frames=388 span=208-595 missing=0 duration=54.8s rate=7.08/s median_gap=133ms max_gap=2404ms backward=0
+  20261028_143610_camera_test_landmarks.csv: frames=214 span=179-392 missing=0 duration=31.1s rate=6.88/s median_gap=133ms max_gap=1837ms backward=0
+  20261028_145945_camera_test_landmarks.csv: frames=471 span=138-608 missing=0 duration=68.0s rate=6.93/s median_gap=134ms max_gap=2202ms backward=0
+  20261028_155156_camera_test_landmarks.csv: frames=346 span=158-503 missing=0 duration=73.6s rate=4.70/s median_gap=200ms max_gap=2337ms backward=0
+  20261028_155349_camera_test_landmarks.csv: frames=105 span=45-149 missing=0 duration=23.5s rate=4.47/s median_gap=200ms max_gap=1935ms backward=0
+  20261028_155759_camera_test_landmarks.csv: frames=279 span=28-306 missing=0 duration=59.1s rate=4.72/s median_gap=200ms max_gap=2370ms backward=0
+  20261028_160359_camera_test_landmarks.csv: frames=170 span=27-196 missing=0 duration=39.9s rate=4.27/s median_gap=232ms max_gap=2401ms backward=0
+  20261028_160456_camera_test_landmarks.csv: frames=111 span=24-134 missing=0 duration=26.2s rate=4.24/s median_gap=233ms max_gap=2001ms backward=0
+  20261028_160919_camera_test_landmarks.csv: frames=88 span=52-139 missing=0 duration=21.5s rate=4.10/s median_gap=232ms max_gap=2368ms backward=0
+  20261028_162245_camera_test_landmarks.csv: frames=121 span=36-156 missing=0 duration=29.6s rate=4.09/s median_gap=233ms max_gap=2404ms backward=0
+  20261028_162438_camera_test_landmarks.csv: frames=135 span=21-155 missing=0 duration=33.2s rate=4.06/s median_gap=233ms max_gap=2393ms backward=0
+  20261028_191747_camera_test_landmarks.csv: frames=132 span=63-194 missing=0 duration=30.7s rate=4.30/s median_gap=228ms max_gap=2367ms backward=0
+  20261028_192438_camera_test_landmarks.csv: frames=306 span=76-381 missing=0 duration=72.4s rate=4.23/s median_gap=233ms max_gap=2368ms backward=0
+  20261028_192738_camera_test_landmarks.csv: frames=52 span=16-67 missing=0 duration=13.3s rate=3.92/s median_gap=231ms max_gap=2365ms backward=0
+  20261028_193141_camera_test_landmarks.csv: frames=130 span=43-172 missing=0 duration=31.1s rate=4.18/s median_gap=233ms max_gap=2401ms backward=0
+  20261028_194300_camera_test_landmarks.csv: frames=55 span=25-79 missing=0 duration=14.5s rate=3.79/s median_gap=233ms max_gap=2366ms backward=0
+  20261028_204419_camera_test_landmarks.csv: frames=98 span=19-116 missing=0 duration=24.8s rate=3.95/s median_gap=233ms max_gap=2540ms backward=0
+  20261028_204859_camera_test_landmarks.csv: frames=195 span=18-212 missing=0 duration=52.6s rate=3.71/s median_gap=233ms max_gap=2304ms backward=0
+  20261028_205535_camera_test_landmarks.csv: frames=257 span=51-307 missing=0 duration=60.2s rate=4.27/s median_gap=233ms max_gap=2336ms backward=0
+  20261028_212627_camera_test_landmarks.csv: frames=141 span=88-228 missing=0 duration=20.3s rate=6.96/s median_gap=133ms max_gap=1668ms backward=0
+  20261028_212832_camera_test_landmarks.csv: frames=1526 span=28-1553 missing=0 duration=191.2s rate=7.98/s median_gap=133ms max_gap=1603ms backward=0
+  20261028_214310_camera_test_landmarks.csv: frames=575 span=82-656 missing=0 duration=62.3s rate=9.23/s median_gap=100ms max_gap=1632ms backward=0
+  20261028_214705_camera_test_landmarks.csv: frames=67 span=27-93 missing=0 duration=12.6s rate=5.32/s median_gap=167ms max_gap=1735ms backward=0
+  20261028_214818_camera_test_landmarks.csv: frames=269 span=36-304 missing=0 duration=46.4s rate=5.80/s median_gap=167ms max_gap=1702ms backward=0
+  20261028_220143_camera_test_landmarks.csv: frames=457 span=38-494 missing=0 duration=79.1s rate=5.78/s median_gap=167ms max_gap=1702ms backward=0
+  20261028_221400_camera_test_landmarks.csv: frames=310 span=37-346 missing=0 duration=40.0s rate=7.76/s median_gap=133ms max_gap=1636ms backward=0
+  20261028_221943_camera_test_landmarks.csv: frames=195 span=21-215 missing=0 duration=34.4s rate=5.68/s median_gap=167ms max_gap=1902ms backward=0
+  20261028_225714_camera_test_landmarks.csv: frames=28 span=27-54 missing=0 duration=4.8s rate=5.83/s median_gap=133ms max_gap=1635ms backward=0
+  20261029_093746_camera_test_landmarks.csv: frames=98 span=124-221 missing=0 duration=14.8s rate=6.61/s median_gap=133ms max_gap=2335ms backward=0
+  20261029_093905_camera_test_landmarks.csv: frames=126 span=17-142 missing=0 duration=22.7s rate=5.56/s median_gap=167ms max_gap=1866ms backward=0
+  20261029_094656_camera_test_landmarks.csv: frames=119 span=21-139 missing=0 duration=22.1s rate=5.40/s median_gap=167ms max_gap=2302ms backward=0
+  20261029_095030_camera_test_landmarks.csv: frames=331 span=217-547 missing=0 duration=56.3s rate=5.87/s median_gap=167ms max_gap=2164ms backward=0
+  20261029_095643_camera_test_landmarks.csv: frames=800 span=1792-2591 missing=0 duration=170.0s rate=4.70/s median_gap=200ms max_gap=2433ms backward=0
+  20261029_100608_camera_test_landmarks.csv: frames=916 span=480-1395 missing=0 duration=199.3s rate=4.60/s median_gap=201ms max_gap=2400ms backward=0
+  20261029_101105_camera_test_landmarks.csv: frames=2472 span=443-2914 missing=0 duration=522.3s rate=4.73/s median_gap=200ms max_gap=2400ms backward=0
+  20261029_102131_camera_test_landmarks.csv: frames=504 span=368-871 missing=0 duration=110.3s rate=4.57/s median_gap=201ms max_gap=2333ms backward=0
+  20261029_102512_camera_test_landmarks.csv: frames=508 span=221-728 missing=0 duration=110.3s rate=4.61/s median_gap=201ms max_gap=2267ms backward=0
+  20261029_102922_camera_test_landmarks.csv: frames=658 span=334-991 missing=0 duration=149.4s rate=4.40/s median_gap=233ms max_gap=2335ms backward=0
+  20261029_103330_camera_test_landmarks.csv: frames=464 span=220-683 missing=0 duration=79.5s rate=5.83/s median_gap=167ms max_gap=2168ms backward=0
+  20261029_103556_camera_test_landmarks.csv: frames=26528 span=260-26787 missing=0 duration=3874.2s rate=6.85/s median_gap=134ms max_gap=2135ms backward=0
+  20261029_114850_camera_test_landmarks.csv: too few rows
+  20261029_114917_camera_test_landmarks.csv: frames=99 span=47-145 missing=0 duration=25.5s rate=3.88/s median_gap=233ms max_gap=2434ms backward=0
+  20261029_115109_camera_test_landmarks.csv: frames=131 span=8-138 missing=0 duration=23.6s rate=5.56/s median_gap=167ms max_gap=2300ms backward=0
+  20261029_115325_camera_test_landmarks.csv: frames=329 span=17-345 missing=0 duration=74.9s rate=4.39/s median_gap=233ms max_gap=2398ms backward=0
+  20261029_115755_camera_test_landmarks.csv: frames=350 span=6-355 missing=0 duration=80.9s rate=4.32/s median_gap=202ms max_gap=2497ms backward=0
+  20261029_120401_camera_test_landmarks.csv: frames=329 span=16-344 missing=0 duration=76.4s rate=4.31/s median_gap=233ms max_gap=2433ms backward=0
+  20261029_120545_camera_test_landmarks.csv: frames=654 span=34-687 missing=0 duration=149.4s rate=4.38/s median_gap=233ms max_gap=2268ms backward=0
+  20261029_120922_camera_test_landmarks.csv: frames=204 span=18-221 missing=0 duration=47.2s rate=4.32/s median_gap=233ms max_gap=2370ms backward=0
+  20261029_121253_camera_test_landmarks.csv: frames=1419 span=49-1467 missing=0 duration=315.9s rate=4.49/s median_gap=232ms max_gap=2365ms backward=0
+  20261029_122322_camera_test_landmarks.csv: frames=1641 span=916-2557 missing=1 duration=379.0s rate=4.33/s median_gap=233ms max_gap=2369ms backward=0
+  20261029_123156_camera_test_landmarks.csv: frames=3822 span=329-4150 missing=0 duration=653.9s rate=5.85/s median_gap=167ms max_gap=2188ms backward=0
+ -- recorded video files:
+  20261029_120922_camera_test.mp4: frames=221 fps=30.0 size=1280x720
+  20261029_120922_raw_camera.mp4: frames=221 fps=30.0 size=1280x720
+  20261029_121253_camera_test.mp4: frames=1467 fps=30.0 size=1280x720
+  20261029_121253_raw_camera.mp4: frames=1467 fps=30.0 size=1280x720
+  20261029_122322_camera_test.mp4: frames=2557 fps=30.0 size=1280x720
+  20261029_122322_raw_camera.mp4: frames=2557 fps=30.0 size=1280x720
+  20261029_123156_camera_test.mp4: frames=4150 fps=30.0 size=1280x720
+  20261029_123156_raw_camera.mp4: frames=4150 fps=30.0 size=1280x720
+
+====== A2 OBJECTS: detector, classes, tracker ======
+  src/capture/camera_capture.py:151: object_detection_tracker = ObjectDetectionTracker(
+  src/capture/camera_capture.py:156: identity_tracker = ObjectIdentityTracker(
+  src/capture/camera_capture.py:161: movement_tracker = ObjectMovementTracker()
+  src/capture/camera_capture.py:282: interaction_event_tracker = InteractionEventTracker(
+  src/capture/camera_capture.py:553: allowed_classes=permitted_objects,
+  src/capture/camera_capture.py:562: min_iou=0.30,
+  src/assessment/posture_calibration_store.py:1: """Persist session-specific posture calibration results."""
+  src/assessment/rehab_state.py:8: Create the persistent rehabilitation-state structure.
+  src/object_detection/object_tracker.py:7: def track_objects(frame, allowed_classes=None):
+  src/object_detection/object_tracker.py:40: persist=True,
+  src/object_detection/object_tracker.py:41: conf=0.25,
+  src/object_detection/object_tracker.py:42: classes=class_ids,
+  src/object_detection/object_tracker.py:43: tracker="bytetrack.yaml",
+  src/object_detection/object_tracker.py:44: device="mps",
+  src/object_detection/object_segmentation.py:7: def __init__(self, model_path="yolo11n-seg.pt", confidence=0.10):
+  src/object_detection/object_segmentation.py:8: self.model = YOLO(model_path)
+  src/object_detection/object_segmentation.py:11: def segment_objects(self, frame, allowed_classes=None):
+  src/object_detection/object_segmentation.py:32: conf=self.confidence,
+  src/object_detection/object_segmentation.py:33: classes=class_ids,
+  src/object_detection/yolo_detector.py:5: model = YOLO("yolo11n.pt")
+  src/object_detection/yolo_detector.py:22: conf=0.25,
+  src/object_detection/duplicate_filter.py:5: IoU = overlapping area / combined area.
+  src/object_detection/geometry_association.py:7: min_iou=0.30,
+  src/object_detection/geometry_association.py:69: min_iou=0.30,
+  src/object_detection/geometry_association.py:90: min_iou=min_iou,
+  ... (more hits, capped)
+ -- class filtering:
+  src/capture/camera_capture.py:29: from src.object_detection.yolo_detector import (detect_objects, draw_detected_objects, filter_objects_by_class,)
+  src/capture/camera_capture.py:103: permitted_objects = current_task["permitted_objects"]
+  src/capture/camera_capture.py:254: f"Permitted objects: {permitted_objects}"
+  src/capture/camera_capture.py:548: if SEGMENTATION_ENABLED and permitted_objects:
+  src/capture/camera_capture.py:553: allowed_classes=permitted_objects,
+  src/capture/camera_capture.py:599: permitted_detected_objects, irrelevant_detected_objects = (filter_objects_by_class(detected_objects, permitted_objects))
+  src/capture/camera_capture.py:1225: or associated_object_class not in permitted_objects
+  src/tasks/task_config.py:5: "permitted_objects": [
+  src/tasks/task_config.py:23: "permitted_objects": [
+  src/tasks/task_config.py:41: "permitted_objects": [
+  src/platform_config/session_config.py:85: "permitted_objects": [self.object_id],
+  src/object_detection/object_tracker.py:7: def track_objects(frame, allowed_classes=None):
+  src/object_detection/object_tracker.py:16: allowed_classes:
+  src/object_detection/object_tracker.py:28: if allowed_classes is not None:
+  src/object_detection/object_tracker.py:32: if class_name in allowed_classes
+  ... (more hits, capped)
+ -- OBJECT_LIBRARY: 13 objects
+    bottle [configured] -> ['cylindrical', 'whole_hand_power']
+    cup [configured] -> ['handle', 'cylindrical']
+    spoon [configured] -> ['handle', 'multidigit_precision', 'tripod']
+    fork [experimental] -> ['tripod', 'multidigit_precision']
+    bowl [experimental] -> ['whole_hand_power', 'large_palmar']
+    book [experimental] -> ['large_palmar', 'whole_hand_power']
+    cell phone [experimental] -> ['large_palmar', 'whole_hand_power']
+    remote [experimental] -> ['cylindrical', 'whole_hand_power']
+    toothbrush [experimental] -> ['tripod', 'multidigit_precision']
+    scissors [experimental] -> ['handle']
+    sports ball [experimental] -> ['spherical', 'whole_hand_power']
+    apple [experimental] -> ['spherical', 'whole_hand_power']
+    banana [experimental] -> ['cylindrical', 'whole_hand_power']
+ -- TASKS: 3
+    bottle_transport: objects=['bottle'] grasps=['cylindrical', 'whole_hand_power']
+    cup_manipulation: objects=['cup'] grasps=['handle', 'cylindrical']
+    spoon_manipulation: objects=['spoon'] grasps=['handle', 'multidigit_precision', 'tripod']
+ -- tracker yaml files:
+  none in project (library default is used)
+ -- duplicate filter and identity tracker settings:
+  src/object_detection/duplicate_filter.py:37: iou_threshold=0.90
+  src/object_detection/duplicate_filter.py:156: containment = (
+  src/object_detection/duplicate_filter.py:162: if overlap >= iou_threshold or containment >= 0.95:
+  src/object_detection/object_tracker.py:107: max_missing_frames=15,
+  src/object_detection/object_tracker.py:108: max_match_distance=100
+  src/object_detection/object_tracker.py:110: self.max_missing_frames = max_missing_frames
+  src/object_detection/object_tracker.py:111: self.max_match_distance = max_match_distance
+  src/object_detection/object_tracker.py:124: return missing_frames > self.max_missing_frames
+  src/object_detection/object_tracker.py:213: if distance <= self.max_match_distance:
+  src/object_detection/object_tracker.py:250: if overlap >= 0.85 and missing_frames <= 3:
+
+====== A3 HAND AND INTERACTION ======
+ -- handedness / mirroring:
+  src/capture/camera_capture.py:341: frame = cv2.flip(frame, 1)
+  src/capture/camera_capture.py:765: for handedness in results.multi_handedness:
+  src/capture/camera_capture.py:766: hand_label = handedness.classification[0].label
+  src/capture/camera_capture.py:769: if hand_label == "Left":
+  src/capture/camera_capture.py:770: hand_label = "Right"
+  src/capture/camera_capture.py:772: hand_label = "Left"
+  src/capture/camera_capture.py:829: handedness = results.multi_handedness[hand_index]
+  src/capture/camera_capture.py:831: hand_label = handedness.classification[0].label
+  src/capture/camera_capture.py:832: hand_confidence = handedness.classification[0].score
+  src/capture/camera_capture.py:834: if hand_label == "Left":
+  src/capture/camera_capture.py:835: hand_label = "Right"
+  src/capture/camera_capture.py:837: hand_label = "Left"
+  src/capture/camera_capture.py:1313: hand_label=hand_label,
+  src/capture/camera_capture.py:1459: panel_x = 350 if hand_label == "Left" else frame.shape[1] - 340
+  src/capture/camera_capture.py:1486: hand_label=hand_label,
+  ... (more hits, capped)
+ -- interaction thresholds:
+  src/object_detection/object_detector.py:4: AREA_THRESHOLD = 850
+  src/object_detection/object_detection_tracker.py:6: uncertain_threshold=0.25
+  src/object_detection/object_detection_tracker.py:9: self.uncertain_threshold = uncertain_threshold
+  src/object_detection/hand_object_interaction.py:39: margin=50
+  src/object_detection/hand_object_interaction.py:61: margin=20
+  src/object_detection/hand_object_interaction.py:167: def __init__(self, required_frames=3):
+  src/object_detection/hand_object_interaction.py:168: self.required_frames = required_frames
+  src/object_detection/hand_object_interaction.py:191: if self.candidate_count >= self.required_frames:
+  src/object_detection/hand_object_interaction.py:222: max_distance=50,
+  src/object_detection/hand_object_interaction.py:223: ambiguity_margin=5,
+  src/object_detection/hand_object_interaction.py:402: if distance_difference <= ambiguity_margin:
+  src/object_detection/interaction_event_tracker.py:19: manipulation_threshold=2.0,
+  src/object_detection/interaction_event_tracker.py:20: transport_threshold=10.0,
+  src/object_detection/interaction_event_tracker.py:22: self.manipulation_threshold = manipulation_threshold
+  src/object_detection/interaction_event_tracker.py:23: self.transport_threshold = transport_threshold
+  ... (more hits, capped)
+
+====== A4 GRASP DETECTORS ======
+  detect_cylindrical_grasp: called 1 time(s) in camera_capture.py
+  detect_spherical_grasp: called 1 time(s) in camera_capture.py
+  detect_large_aperture_palmar_grasp: called 1 time(s) in camera_capture.py
+  detect_whole_hand_power_grip: called 1 time(s) in camera_capture.py
+  detect_handle_grasp: called 1 time(s) in camera_capture.py
+  detect_hook_grasp: called 1 time(s) in camera_capture.py
+  detect_pincer_grasp: called 1 time(s) in camera_capture.py
+  detect_tip_pinch: called 1 time(s) in camera_capture.py
+  detect_tripod_grasp: called 1 time(s) in camera_capture.py
+  detect_lateral_pinch: called 1 time(s) in camera_capture.py
+  detect_multidigit_precision_grasp: called 1 time(s) in camera_capture.py
+ -- grasp labels seen in logged sessions: {None: 11110, '': 45000, 'AMBIGUOUS': 19483, 'lateral_pinch': 14980, 'UNKNOWN': 8698, 'large_palmar': 5846, 'hook': 29, 'tip_pinch': 1183, 'multidigit_precision': 4402, 'pincer': 2250, 'spherical': 1304, 'tripod': 504, 'cylindrical': 4084, 'handle': 289}
+ -- appropriateness outcomes seen: {None: 11110, '': 45000, 'NOT_ASSESSED': 45779, 'UNCERTAIN': 6674, 'INAPPROPRIATE': 8826, 'APPROPRIATE': 1773}
+
+====== A5 TRAJECTORY ======
+  src/assessment/trajectory_assessment.py:74: if preset_name == "horizontal":
+  src/assessment/trajectory_assessment.py:79: elif preset_name == "vertical":
+  src/assessment/trajectory_assessment.py:84: elif preset_name == "diagonal":
+  src/assessment/trajectory_assessment.py:89: elif preset_name == "curved":
+  src/assessment/trajectory_assessment.py:100: elif preset_name == "s_shaped":
+  src/capture/camera_capture.py:133: trajectory_assessment.orientation_enabled = (
+  src/capture/camera_capture.py:134: SESSION_CONFIG.orientation_enabled
+  src/assessment/game_trajectory.py:74: orientation_enabled = False
+  src/assessment/game_trajectory.py:135: if not self.orientation_enabled:
+  src/assessment/game_trajectory.py:223: and (not self.orientation_enabled or self.next_orientation_checkpoint == len(self.orientation_checkpoints))
+  src/assessment/game_trajectory.py:269: and (not self.orientation_enabled or self.next_orientation_checkpoint == len(self.orientation_checkpoints))
+  src/assessment/game_trajectory.py:555: self.orientation_enabled
+  src/assessment/game_trajectory.py:705: self.orientation_enabled
+  src/assessment/game_trajectory.py:924: if self.orientation_enabled else 0
+  src/assessment/game_trajectory.py:930: self.orientation_enabled
+  ... (more hits, capped)
+ -- any millimetre / ArUco calibration code:
+  (no matches)
+ -- trace source:
+  src/assessment/game_trajectory.py:853: cv2.polylines(frame, [points], True, color, 2)
+  src/assessment/game_trajectory.py:1036: cv2.polylines(
+  src/assessment/trajectory_assessment.py:216: self.actual_path.append(point)
+  src/assessment/trajectory_assessment.py:794: cv2.polylines(
+
+====== A6 POSTURE ======
+  src/assessment/posture_stability.py:13: min_valid_frames=10,
+  src/assessment/posture_stability.py:15: maximum_mad_norm=0.015,
+  src/assessment/posture_calibration_session.py:12: min_valid_frames=10,
+  src/assessment/posture_calibration_session.py:14: maximum_mad_norm=0.015,
+  src/assessment/posture_calibration_session.py:33: min_valid_frames=min_valid_frames,
+  src/assessment/posture_calibration_session.py:35: maximum_mad_norm=maximum_mad_norm,
+  src/assessment/posture_calibration_session.py:76: min_valid_frames=min_valid_frames,
+  src/assessment/posture_calibration_controller.py:14: def __init__(self, min_valid_frames=10):
+  src/assessment/posture_calibration_controller.py:15: self.min_valid_frames = min_valid_frames
+  src/assessment/posture_calibration_controller.py:47: min_valid_frames=self.min_valid_frames,
+  ... (more hits, capped)
+  src/capture/camera_capture.py:2237: "[CALIBRATION] Cannot recalibrate during "
+  20261027_160051_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261027_160122_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261027_162029_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261027_162105_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261027_162740_posture_calibration.json: status=READY reason=None mode=FULL
+  20261027_165248_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261027_170152_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261027_171946_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261027_172323_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261027_173128_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261027_175933_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261027_182452_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261027_193035_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261028_000942_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261028_002745_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261028_010135_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261028_115313_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_115334_posture_calibration.json: status=READY reason=None mode=FULL
+  20261028_115949_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261028_143427_posture_calibration.json: status=READY reason=None mode=FULL
+  20261028_143610_posture_calibration.json: status=READY reason=None mode=FULL
+  20261028_145945_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261028_155156_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261028_155349_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_155759_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_160359_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_160456_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_160919_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_162245_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_162438_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_191747_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_192438_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_192738_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_193141_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_194300_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_204419_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_204859_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_205535_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_212622_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_212828_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_214305_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_214702_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_214815_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_220138_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_221355_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_221939_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261028_225711_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_093741_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_093901_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_094652_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_095025_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261029_095622_posture_calibration.json: status=READY reason=None mode=FULL
+  20261029_100603_posture_calibration.json: status=READY reason=None mode=FULL
+  20261029_101052_posture_calibration.json: status=READY reason=None mode=FULL
+  20261029_102127_posture_calibration.json: status=READY reason=None mode=FULL
+  20261029_102507_posture_calibration.json: status=READY reason=None mode=FULL
+  20261029_102915_posture_calibration.json: status=READY reason=None mode=FULL
+  20261029_103326_posture_calibration.json: status=READY reason=None mode=FULL
+  20261029_103542_posture_calibration.json: status=READY reason=None mode=FULL
+  20261029_114846_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261029_114914_posture_calibration.json: status=READY reason=None mode=PARTIAL
+  20261029_115103_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_115322_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_115752_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_120357_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_120542_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_120918_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_121250_posture_calibration.json: status=UNAVAILABLE reason=Calibration was not completed mode=None
+  20261029_122315_posture_calibration.json: status=READY reason=None mode=FULL
+  20261029_123149_posture_calibration.json: status=READY reason=None mode=FULL
+
+====== A7 REPETITIONS AND EXPORTS ======
+ -- repetition files on disk: none
+ -- hard-coded object names in segmentation:
+  src/assessment/repetition_analysis.py:87: valid_object = object_class == "bottle"
+  src/assessment/game_trajectory.py:842: elif name == "bottle":
+  src/assessment/session_pipeline.py:239: json.dump(
+  src/assessment/run_recorded_session.py:255: json.dump(result, file, indent=2, default=str)
+  src/assessment/export_repetition_results.py:6: def export_repetition_results(
+  src/assessment/export_repetition_results.py:90: json.dump(
+  src/assessment/export_repetition_results.py:106: json.dump(
+  src/assessment/posture_calibration_store.py:57: json.dump(record, file, indent=2, allow_nan=False)
+  src/assessment/combined_assessment_summary.py:163: print(json.dumps(result, indent=2))
+  src/assessment/export_unified_session.py:18: def export_session(session_id):
+  src/assessment/export_unified_session.py:123: json.dump(assessment, file, indent=2, allow_nan=False)
+
+====== A8 DASHBOARDS AND DATA FOLDERS ======
+  src/dashboard/__init__.py: 0 lines, 0 headings
+  src/dashboard/clinician_longitudinal.py: 715 lines, 9 headings
+       st.title("Clinician Longitudinal Dashboard")
+       st.subheader("Session Overview")
+       st.subheader("Session History")
+       st.subheader("Session Performance Comparison")
+       st.subheader("Observed Performance Changes")
+       st.subheader("Performance Trends")
+       st.subheader("Longitudinal Grasp Assessment")
+       st.subheader("Metric Availability")
+       st.subheader("Data Quality and Comparability")
+  src/dashboard/clinician_session.py: 540 lines, 9 headings
+       st.title("Clinician Session Dashboard")
+       st.subheader("Session Overview")
+       st.subheader("Posture Calibration")
+       st.subheader("Repetition Performance")
+       st.subheader("Trajectory Review")
+       st.subheader("Consistency and Performance Changes")
+       st.subheader("Upper-Limb Movement Quality")
+       st.subheader("Grasp and Hand-Object Interaction Assessment")
+       st.subheader("Data Quality and Attempt Review")
+  src/dashboard/patient_dashboard.py: 115 lines, 4 headings
+       st.title("My Rehabilitation Progress")
+       st.subheader("Session Overview")
+       st.subheader("Your Repetitions")
+       st.subheader("Progress Across Sessions")
+  src/dashboard/trajectory_visualization.py: 422 lines, 0 headings
+  data/.DS_Store: 0 files
+  data/diagnostics: 3 files
+  data/ground_truth: 1 files
+  data/metadata: 0 files
+  data/processed: 112 files
+  data/raw: 1216 files
+  data/session_configs: 85 files
+  data/trajectory_results: 47 files
+  data/volunteer_testing: 98 files
+ -- every file for the latest session id demo
+    data/session_configs/demo_session.json
+
+====== TESTS ======
+
+tests/test_game_trajectory_identity_recovery.py:34: AssertionError
+_ TestGameTrajectoryIdentityRecovery.test_original_id_preferred_regardless_of_order _
+
+self = <tests.test_game_trajectory_identity_recovery.TestGameTrajectoryIdentityRecovery testMethod=test_original_id_preferred_regardless_of_order>
+
+    def test_original_id_preferred_regardless_of_order(self):
+        original = self.detection(8, (510, 400))
+        duplicate = self.detection(11, (510, 455))
+    
+        selected = self.game.recover_object(
+            [duplicate, original]
+        )
+    
+>       self.assertIs(selected, original)
+E       AssertionError: None is not {'object_id': 8, 'center': (510, 400), 'class_name': 'cell phone', 'confidence': 0.8}
+
+tests/test_game_trajectory_identity_recovery.py:45: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_game_trajectory_identity_recovery.py::TestGameTrajectoryIdentityRecovery::test_original_id_continues_when_alone
+FAILED tests/test_game_trajectory_identity_recovery.py::TestGameTrajectoryIdentityRecovery::test_original_id_preferred_over_duplicate
+FAILED tests/test_game_trajectory_identity_recovery.py::TestGameTrajectoryIdentityRecovery::test_original_id_preferred_regardless_of_order
+ERROR tests/test_repetition_offline.py - assert 0 == 1
+ERROR tests/test_session_pipeline_offline.py - assert 0 == 2
+3 failed, 34 passed, 2 errors in 0.14s
+
+DONE. investigation_report.txt is in the project folder.

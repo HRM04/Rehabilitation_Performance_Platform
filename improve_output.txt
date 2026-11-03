@@ -1,0 +1,132 @@
+
+======== GRASP REPLAY (offline, all logged landmarks) ========
+landmark files: 281
+
+hand frames analysed: 76684
+
+Detector firing counts (raw landmarks, re-run offline):
+  cylindrical             29474  (38.4%)
+  spherical               25710  (33.5%)
+  large_palmar            16222  (21.2%)
+  whole_hand_power        14053  (18.3%)
+  handle                  16084  (21.0%)
+  hook                     3917  (5.1%)
+  pincer                    819  (1.1%)
+  tip_pinch                2744  (3.6%)
+  tripod                  14545  (19.0%)
+  lateral_pinch           33791  (44.1%)
+  multidigit_precision    27896  (36.4%)
+
+Label after arbitration (raw): {'lateral_pinch': 16273, 'AMBIGUOUS': 44111, 'UNKNOWN': 10489, 'multidigit_precision': 2610, 'pincer': 310, 'tip_pinch': 1211, 'spherical': 111, 'large_palmar': 1553, 'cylindrical': 12, 'tripod': 2, 'hook': 1, 'handle': 1}
+Label after arbitration (smoothed): {'lateral_pinch': 16324, 'UNKNOWN': 10386, 'AMBIGUOUS': 44395, 'multidigit_precision': 2464, 'pincer': 310, 'tip_pinch': 1204, 'large_palmar': 1492, 'spherical': 92, 'cylindrical': 13, 'tripod': 3, 'hook': 1}
+
+Most common co-firing pairs (cause of AMBIGUOUS):
+  cylindrical + spherical: 22317
+  cylindrical + handle: 16071
+  cylindrical + whole_hand_power: 14048
+  tripod + multidigit_precision: 13939
+  lateral_pinch + multidigit_precision: 13219
+  cylindrical + multidigit_precision: 13186
+  spherical + large_palmar: 12863
+  spherical + multidigit_precision: 11915
+  cylindrical + large_palmar: 11524
+  spherical + handle: 10420
+
+Whole-hand power grip, how often each condition holds (of 76656 frames with four valid finger angles):
+  flexed>=3      35.3%
+  strong>=2      23.4%
+  thumb_engaged  95.5%
+  closed_hand    73.3%
+
+Index fingertip x jitter (RMS second difference, px): raw 61.91, smoothed 50.25 (median over sequences)
+Mean absolute difference smoothed vs raw (px): 6.97
+Frame-to-frame change on slow frames (<15 px raw), mean px: raw 4.06, smoothed 3.45 (59292 frame pairs)
+
+Object classes seen in object logs (61 distinct):
+  person         88017
+  chair          56369
+  cup            33402
+  bottle         26905
+  cell phone     13185
+  tv             8532
+  couch          8169
+  bed            6249
+  potted plant   5163
+  mouse          5147
+  laptop         3876
+  keyboard       2572
+  remote         2241
+  vase           1823
+  bowl           1805
+  dining table   1651
+  apple          1616
+  book           1371
+  sports ball    1202
+  toothbrush     1046
+  skateboard     619
+  fork           546
+  wine glass     449
+  frisbee        334
+  tie            305
+  motorcycle     237
+  handbag        236
+  teddy bear     97
+  clock          93
+  donut          91
+  bicycle        63
+  sink           62
+  cake           56
+  bench          48
+  toilet         47
+  microwave      41
+  umbrella       37
+  hot dog        28
+  hair drier     13
+  knife          12
+  snowboard      9
+  baseball bat   9
+  carrot         8
+  cat            8
+  refrigerator   7
+  bird           7
+  oven           6
+  baseball glove 6
+  banana         5
+  spoon          4
+  traffic light  4
+  surfboard      3
+  scissors       3
+  suitcase       3
+  dog            1
+  pizza          1
+  airplane       1
+  elephant       1
+  kite           1
+  broccoli       1
+  car            1
+
+======== TESTS ========
+.....................................                                    [100%]
+37 passed in 0.23s
+
+======== FILE LOCATIONS ========
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/src/preprocessing/__init__.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/src/preprocessing/landmark_smoothing.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/src/preprocessing/scale_calibration.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/tools/verify_grasp_replay.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/assets/aruco_DICT_4X4_50_id0_50mm.png   <- print this at 100% scale
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/grasp_replay_report_20261101_225518.txt
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/pytest_20261101_225518.txt
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/src/capture/camera_capture.py  [imports+smoothing banner, smooth hand landmarks, ambiguous appropriateness rule, grasp overlay]
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/src/data/interaction_logger.py  [reason column header, reason helper, reason value, no-hand reason]
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/src/assessment/repetition_analysis.py  [any object]
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/tests/test_repetition_offline.py  [handedness in rows]
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/tests/test_session_pipeline_offline.py  [handedness in rows]
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/tests/test_game_trajectory_identity_recovery.py  [contact evidence passed to recover_object]
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/improve_20261101_225518/src/capture/camera_capture.py
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/improve_20261101_225518/src/data/interaction_logger.py
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/improve_20261101_225518/src/assessment/repetition_analysis.py
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/improve_20261101_225518/tests/test_repetition_offline.py
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/improve_20261101_225518/tests/test_session_pipeline_offline.py
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/improve_20261101_225518/tests/test_game_trajectory_identity_recovery.py
+LOG        /Users/pro/Documents/Projects/Rehabilitation Research/reports/improve_log_20261101_225518.txt

@@ -29,6 +29,7 @@ def assess_session(
     grasp_assessments=None,
     baseline=None,
     reference_posture=None,
+    grasp_observations=None,
 ):
     """
     Process all detected repetitions from one rehabilitation session.
@@ -89,6 +90,7 @@ def assess_session(
             trajectory_assessment=trajectory_assessment,
             grasp_assessment=grasp_assessment,
             reference_posture=reference_posture,
+            grasp_observations=grasp_observations,
         )
 
         if assessment is None:

@@ -1,0 +1,50 @@
+HOGRASPNET DATASET INSPECTION
+==================================================
+JSON files: 5643
+Unreadable files: 0
+Subjects: {'S1': 5643}
+Objects: {'cracker_box': 141, 'foldable_phone': 331, 'hammer': 67, 'stapler': 166, 'golf_ball': 1211, 'wine_glass': 63, 'plate': 56, 'scissors': 53, 'cardboard_box': 211, 'flat_screwdriver': 1848, 'note': 174, 'Scrub_cleanser_bottle': 202, 'tape': 262, 'small_marker': 144, 'bowl': 103, 'mouse': 135, 'baseball': 139, 'potted_meat_can': 83, 'mug': 60, 'master_chef_can': 116, 'dice': 78}
+Camera/path groups: ['mas', 'sub1', 'sub2', 'sub3']
+
+GRASP LABELS
+--------------------------------------------------
+Tripod                              count= 1321 ids=[14]
+Inferior_Pincer                     count=  785 ids=[33]
+Small_Diameter                      count=  735 ids=[2]
+Precision_Disk                      count=  492 ids=[12]
+Extension_Type                      count=  363 ids=[18]
+Adducted_Thumb                      count=  297 ids=[4]
+Quadpod                             count=  243 ids=[27]
+Lateral                             count=  204 ids=[16]
+Distal                              count=  168 ids=[19]
+Large_Diameter                      count=  160 ids=[1]
+Parallel_Extension                  count=  146 ids=[22]
+Palmar_Pinch                        count=  144 ids=[9]
+Sphere_3_Finger                     count=  133 ids=[28]
+Ring                                count=  132 ids=[31]
+Lateral_Tripod                      count=  109 ids=[25]
+Index_Finger_Extension              count=   67 ids=[17]
+Tip_Pinch                           count=   63 ids=[24]
+Precision_Sphere                    count=   60 ids=[13]
+Palmar                              count=   21 ids=[30]
+
+ANNOTATION DATA SHAPES
+--------------------------------------------------
+[1, [21, [3, 'float']]]: 5643
+
+OUR 11 IMPLEMENTED GRASPS
+--------------------------------------------------
+cylindrical
+spherical
+large_palmar
+whole_hand_power
+handle
+hook
+pincer
+tip_pinch
+tripod
+lateral_pinch
+multidigit_precision
+
+NOTE: Dataset-to-system mapping is not yet validated.
+Label similarity alone does not establish equivalence.

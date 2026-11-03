@@ -1,0 +1,13 @@
+======== TESTS ========
+........................................................................ [ 71%]
+.............................                                            [100%]
+101 passed in 0.48s
+
+======== FILE LOCATIONS ========
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/reports/pytest_grasp_20261101_233153.txt
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/src/capture/camera_capture.py  [voter import, label averaging, log raw label]
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/src/data/frame_record.py  [raw param, raw field]
+MODIFIED  /Users/pro/Documents/Projects/Rehabilitation Research/src/data/interaction_logger.py  [raw header, raw value]
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/grasp_20261101_233153/src/capture/camera_capture.py
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/grasp_20261101_233153/src/data/frame_record.py
+BACKUP    /Users/pro/Documents/Projects/Rehabilitation Research/backups/grasp_20261101_233153/src/data/interaction_logger.py

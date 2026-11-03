@@ -1,0 +1,1244 @@
+
+=================================================================
+src/capture/camera_capture.py
+=================================================================
+...
+74: trajectory_assessment = GameTrajectory(
+75:     object_name=SESSION_CONFIG.object_id,
+76:     grace_seconds=3.0,
+77:     start_point=(250, 400),
+78:     target_center=(1000, 400),
+79:     target_radius=70,
+80: )
+81: 
+82: trajectory_assessment.set_preset(
+83:     SESSION_CONFIG.trajectory,
+84:     frame_width=SESSION_CONFIG.frame_width,
+85:     frame_height=SESSION_CONFIG.frame_height,
+86: )
+87: 
+88: # Task configuration is supplied by the platform bridge.
+89: 
+90: permitted_objects = current_task["permitted_objects"]
+...
+319:                 end_point = (
+320:                     int(end["x"] * frame_width),
+321:                     int(end["y"] * frame_height),
+322:                 )
+323: 
+324:                 cv2.line(frame, start_point, end_point, (0, 255, 255), 2)
+325: 
+326:             # Draw a circle at each sufficiently visible landmark.
+327:             for landmark in upper_body_landmarks.values():
+328:                 if landmark["visibility"] < 0.5:
+329:                     continue
+330: 
+331:                 point = (
+332:                     int(landmark["x"] * frame_width),
+333:                     int(landmark["y"] * frame_height),
+334:                 )
+335: 
+336:                 cv2.circle(frame, point, 5, (255, 0, 255), -1)
+337: 
+338: 
+339:                 # Display the calculated elbow and shoulder angles.
+340:                 angle_labels = [
+341:                     ("Left elbow", upper_body_angles["left_elbow"]),
+342:                     ("Right elbow", upper_body_angles["right_elbow"]),
+343:                     ("Left shoulder", upper_body_angles["left_shoulder"]),
+344:                     ("Right shoulder", upper_body_angles["right_shoulder"]),
+345:                 ]
+346: 
+347:                 for index, (joint_name, angle) in enumerate(angle_labels):
+...
+349:                         f"{joint_name}: {angle:.1f} deg"
+350:                         if angle is not None
+351:                         else f"{joint_name}: N/A"
+352:                     )
+353: 
+354:                     cv2.putText(
+355:                         frame,
+356:                         angle_text,
+357:                         (20, 350 + index * 25),
+358:                         cv2.FONT_HERSHEY_SIMPLEX,
+359:                         0.55,
+360:                         (255, 255, 0),
+361:                         2,
+362:                     )
+363: 
+364:         frame_number += 1
+365:         timestamp_ms = int((time.perf_counter() - start_time) * 1000)
+...
+538:             yolo_id = tracked_object.get("track_id")
+539:             object_id = tracked_object.get("object_id")
+540: 
+541:             x1, y1, x2, y2 = tracked_object["bounding_box"]
+542: 
+543:             cv2.putText(
+544:                 frame,
+545:                 f"YOLO: {yolo_id} | Object: {object_id}",
+546:                 (x1 + 5, y1 + 25),
+547:                 cv2.FONT_HERSHEY_SIMPLEX,
+548:                 0.6,
+549:                 (255, 0, 0),
+550:                 2
+551:             )
+552: 
+553: 
+554:             # Draw segmentation geometry for this tracked object.
+...
+559:                 oriented_box = geometry.get("oriented_box")
+560: 
+561:                 # Green: estimated visible object contour.
+562:                 if polygon is not None:
+563:                     contour_points = np.rint(polygon).astype(np.int32)
+564:                     cv2.polylines(
+565:                         frame,
+566:                         [contour_points],
+567:                         isClosed=True,
+568:                         color=(0, 255, 0),
+569:                         thickness=2,
+570:                     )
+571: 
+572:                 # Red: rotated bounding box.
+573:                 if oriented_box is not None:
+574:                     box_points = np.asarray(
+575:                         oriented_box,
+576:                         dtype=np.int32,
+577:                     )
+578: 
+579:                     cv2.polylines(
+580:                         frame,
+581:                         [box_points],
+582:                         isClosed=True,
+583:                         color=(0, 0, 255),
+584:                         thickness=2,
+585:                     )
+586: 
+587:                 # Display segmentation-derived object measurements.
+588:                 angle = geometry["orientation_deg"]
+589:                 major_axis = geometry["major_axis_px"]
+590:                 minor_axis = geometry["minor_axis_px"]
+...
+612:                     text_y = label_y + (label_index * 23)
+613: 
+614:                     if text_y >= frame.shape[0]:
+615:                         break
+616: 
+617:                     cv2.putText(
+618:                         frame,
+619:                         label_text,
+620:                         (label_x, text_y),
+621:                         cv2.FONT_HERSHEY_SIMPLEX,
+622:                         0.5,
+623:                         (0, 255, 255),
+624:                         2,
+625:                         cv2.LINE_AA,
+626:                     )
+627: 
+628:         if results.multi_hand_landmarks:
+...
+796:                     fingertip_count = count_fingertips_near_object(
+797:                         hand_data,
+798:                         nearest_object
+799:                     )
+800: 
+801:                     # cv2.putText(
+802:                     #     frame,
+803:                     #     interaction_text,
+804:                     #     (wrist_x, wrist_y - 90),
+805:                     #     cv2.FONT_HERSHEY_SIMPLEX,
+806:                     #     0.6,
+807:                     #     (255, 255, 0),
+808:                     #     2
+809:                     # )
+810: 
+811:                 
+812: 
+813:                     # cv2.putText(
+814:                     #     frame,
+815:                     #     interaction_text,
+816:                     #     (wrist_x, wrist_y - 90),
+817:                     #     cv2.FONT_HERSHEY_SIMPLEX,
+818:                     #     0.6,
+819:                     #     (255, 255, 0),
+820:                     #     2
+821:                     # )
+822: 
+823:                 # -----------------------------
+824:                 # Wrist-relative coordinates
+...
+831:                     coordinates["x_rel"] = coordinates["x_px"] - wrist_x
+832:                     coordinates["y_rel"] = coordinates["y_px"] - wrist_y
+833: 
+834: 
+835:                 # if nearest_object is not None:
+836:                 #     cv2.putText(
+837:                 #         frame,
+838:                 #         f"Nearest object: {object_name} ({object_distance:.0f}px)",
+839:                 #         (wrist_x, wrist_y - 90),
+840:                 #         cv2.FONT_HERSHEY_SIMPLEX,
+841:                 #         0.6,
+842:                 #         (255, 255, 0),
+843:                 #         2
+844:                 #     )
+845:                 # -----------------------------
+846:                 # Scale normalization
+847:                 # -----------------------------
+...
+1084:                     detected_grasp_type = "UNKNOWN"
+1085: 
+1086:                 # Display the preliminary grasp classification for this hand.
+1087:                 candidate_text = ", ".join(detected_grasp_types) or "none"
+1088: 
+1089:                 # cv2.putText(
+1090:                 #     frame,
+1091:                 #     f"{hand_label} grasp: {detected_grasp_type}",
+1092:                 #     (20, 180 if hand_label == "Left" else 250),
+1093:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1094:                 #     0.55,
+1095:                 #     (255, 255, 255),
+1096:                 #     2,
+1097:                 # )
+1098: 
+1099:                 # cv2.putText(
+1100:                 #     frame,
+1101:                 #     f"Candidates: {candidate_text[:75]}",
+1102:                 #     (20, 205 if hand_label == "Left" else 275),
+1103:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1104:                 #     0.45,
+1105:                 #     (255, 255, 255),
+1106:                 #     1,
+1107:                 # )
+1108: 
+1109:                 # -----------------------------------------
+1110:                 # Preliminary task-specific grasp assessment
+...
+1130:                     grasp_appropriateness = "APPROPRIATE"
+1131: 
+1132:                 else:
+1133:                     grasp_appropriateness = "INAPPROPRIATE"
+1134: 
+1135:                 # cv2.putText(
+1136:                 #     frame,
+1137:                 #     f"{hand_label} appropriateness: {grasp_appropriateness}",
+1138:                 #     (20, 225 if hand_label == "Left" else 295),
+1139:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1140:                 #     0.55,
+1141:                 #     (255, 255, 255),
+1142:                 #     2,
+1143:                 # )
+1144: 
+1145:                 candidate_interaction_state = determine_interaction_state(
+1146:                     hand_near_object=hand_near_object,
+...
+1325:                 # Put each hand's information in a separate area.
+1326:                 panel_x = 350 if hand_label == "Left" else frame.shape[1] - 340
+1327:                 panel_y = 35
+1328: 
+1329:                 for label_index, label_text in enumerate(interaction_labels):
+1330:                     cv2.putText(
+1331:                         frame,
+1332:                         label_text,
+1333:                         (panel_x, panel_y + label_index * 24),
+1334:                         cv2.FONT_HERSHEY_SIMPLEX,
+1335:                         0.55,
+1336:                         (255, 255, 255),
+1337:                         2,
+1338:                         cv2.LINE_AA,
+1339:                     )
+1340:                 
+1341:                 frame_record = create_frame_record(
+...
+1387:                     interaction_text = (
+1388:                         f"Raw: {candidate_interaction_state} | "
+1389:                         f"Stable: {interaction_state}"
+1390:                     )
+1391: 
+1392:                 cv2.putText(
+1393:                     frame,
+1394:                     interaction_text,
+1395:                     (wrist_x, wrist_y - 240),
+1396:                     cv2.FONT_HERSHEY_SIMPLEX,
+1397:                     0.6,
+1398:                     (255, 255, 0),
+1399:                     2
+1400:                 )
+1401: 
+1402:                 if object_name is not None:
+1403: 
+1404:                     cv2.putText(
+1405:                         frame,
+1406:                         f"Object movement: {object_movement:.1f}px",
+1407:                         (wrist_x, wrist_y - 150),
+1408:                         cv2.FONT_HERSHEY_SIMPLEX,
+1409:                         0.6,
+1410:                         (255, 255, 0),
+1411:                         2
+1412:                     )
+1413: 
+1414: 
+1415:                 # if object_name is not None:
+1416: 
+1417:                 #     cv2.putText(
+1418:                 #         frame,
+1419:                 #         f"Nearest: {object_name} ({object_distance:.0f}px)",
+1420:                 #         (wrist_x, wrist_y - 120),
+1421:                 #         cv2.FONT_HERSHEY_SIMPLEX,
+1422:                 #         0.6,
+1423:                 #         (255, 255, 0),
+1424:                 #         2
+1425:                 #     )
+1426: 
+1427:                 cv2.putText(
+1428:                         frame,
+1429:                         f"Object movement: {object_movement:.1f}px",
+1430:                         (wrist_x, wrist_y - 180),
+1431:                         cv2.FONT_HERSHEY_SIMPLEX,
+1432:                         0.6,
+1433:                         (255, 255, 0),
+1434:                         2
+1435:                     )
+1436: 
+1437:                 
+1438:                 cv2.putText(
+1439:                     frame,
+1440:                     interaction_text,
+1441:                     (wrist_x, wrist_y - 210),
+1442:                     cv2.FONT_HERSHEY_SIMPLEX,
+1443:                     0.6,
+1444:                     (255, 255, 0),
+1445:                     2
+1446:                 )
+1447:             
+1448:                 # cv2.putText(
+1449:                 #     frame,
+1450:                 #     grasp_text,
+1451:                 #     (wrist_x, wrist_y - 60),
+1452:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1453:                 #     0.7,
+1454:                 #     (0, 255, 0),
+1455:                 #     2
+1456:                 # )
+1457: 
+1458:                 # cv2.putText(
+1459:                 #     frame,
+1460:                 #     f"Cylindrical: {cylindrical_confidence:.1f}%",
+1461:                 #     (20, 170),
+1462:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1463:                 #     0.7,
+1464:                 #     (255, 255, 255),
+1465:                 #     2
+1466:                 # )
+1467: 
+1468:                 # cv2.putText(
+1469:                 #     frame,
+1470:                 #     f"Spherical: {spherical_confidence:.1f}%",
+1471:                 #     (20, 110),
+1472:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1473:                 #     0.7,
+1474:                 #     (255, 255, 255),
+1475:                 #     2
+1476:                 # )
+1477: 
+1478: 
+1479:                 # cv2.putText(
+1480:                 #     frame,
+1481:                 #     f"Large Palmar: {is_large_palmar} ({large_palmar_confidence:.1f}%)",
+1482:                 #     (20, 140),
+1483:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1484:                 #     0.7,
+1485:                 #     (255, 255, 255),
+1486:                 #     2
+1487:                 # )
+1488: 
+1489: 
+1490:                 # cv2.putText(
+1491:                 #     frame,
+1492:                 #     f"Power Grip: {is_power_grip} ({power_grip_confidence:.1f}%)",
+1493:                 #     (20, 200),
+1494:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1495:                 #     0.7,
+1496:                 #     (255, 255, 255),
+1497:                 #     2
+1498:                 # )
+1499: 
+1500:                 # cv2.putText(
+1501:                 #     frame,
+1502:                 #     f"Handle Grasp: {is_handle_grasp} ({handle_grasp_confidence:.1f}%)",
+1503:                 #     (20, 230),
+1504:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1505:                 #     0.7,
+1506:                 #     (255, 255, 255),
+1507:                 #     2
+1508:                 # )
+1509: 
+1510: 
+1511: 
+1512:                 # cv2.putText(
+1513:                 #     frame,
+1514:                 #     f"Hook Grasp: {is_hook_grasp} ({hook_grasp_confidence:.1f}%)",
+1515:                 #     (20, 260),
+1516:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1517:                 #     0.7,
+1518:                 #     (255, 255, 255),
+1519:                 #     2
+1520:                 # )
+1521: 
+1522: 
+1523: 
+1524:                 # cv2.putText(
+1525:                 #     frame,
+1526:                 #     f"Pincer: {is_pincer} ({pincer_confidence:.1f}%)",
+1527:                 #     (20, 290),
+1528:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1529:                 #     0.7,
+1530:                 #     (255, 255, 255),
+1531:                 #     2
+1532:                 # )
+1533: 
+1534: 
+1535:                 # cv2.putText(
+1536:                 #     frame,
+1537:                 #     f"Tip Pinch: {is_tip_pinch} ({tip_pinch_confidence:.1f}%)",
+1538:                 #     (20, 320),
+1539:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1540:                 #     0.7,
+1541:                 #     (255, 255, 255),
+1542:                 #     2
+1543:                 # )
+1544: 
+1545: 
+1546: 
+1547: 
+1548:                 # cv2.putText(
+1549:                 #     frame,
+1550:                 #     f"Tripod: {is_tripod} ({tripod_confidence:.1f}%)",
+1551:                 #     (20, 350),
+1552:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1553:                 #     0.7,
+1554:                 #     (255, 255, 255),
+1555:                 #     2
+1556:                 # )
+1557: 
+1558: 
+1559: 
+1560:                 # cv2.putText(
+1561:                 #     frame,
+1562:                 #     f"Lateral Pinch: {is_lateral_pinch} ({lateral_pinch_confidence:.1f}%)",
+1563:                 #     (20, 380),
+1564:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1565:                 #     0.7,
+1566:                 #     (255, 255, 255),
+1567:                 #     2
+1568:                 # )
+1569: 
+1570: 
+1571: 
+1572:                 # cv2.putText(
+1573:                 #     frame,
+1574:                 #     f"Multidigit Precision: {is_multidigit_precision} "
+1575:                 #     f"({multidigit_precision_confidence:.1f}%)",
+1576:                 #     (20, 410),
+1577:                 #     cv2.FONT_HERSHEY_SIMPLEX,
+1578:                 #     0.7,
+1579:                 #     (255, 255, 255),
+1580:                 #     2
+1581:                 # )
+1582: 
+1583:                 log_hand_landmarks(
+...
+1595:                 grasp_confidence)
+1596: 
+1597: 
+1598:                 
+1599: 
+1600:         # cv2.putText(
+1601:         #     frame,
+1602:         #     f"Hands detected: {num_hands}",
+1603:         #     (30, 80),
+1604:         #     cv2.FONT_HERSHEY_SIMPLEX,
+1605:         #     1,
+1606:         #     (0, 255, 0),
+1607:         #     2
+1608:         # )
+1609: 
+1610: 
+1611:         # cv2.putText(
+1612:         #     frame,
+1613:         #     f"Permitted objects: {len(permitted_detected_objects)}",
+1614:         #     (30, 450),
+1615:         #     cv2.FONT_HERSHEY_SIMPLEX,
+1616:         #     0.6,
+1617:         #     (255, 255, 255),
+1618:         #     2
+1619:         # )
+1620: 
+1621:         # cv2.putText(
+1622:         #     frame,
+1623:         #     f"Irrelevant objects: {len(irrelevant_detected_objects)}",
+1624:         #     (30, 480),
+1625:         #     cv2.FONT_HERSHEY_SIMPLEX,
+1626:         #     0.6,
+1627:         #     (255, 255, 255),
+1628:         #     2
+1629:         # )
+1630: 
+1631:         # Reset start confirmation when the candidate
+1632:         # object disappears or leaves the start region.
+...
+1687:         # -------------------------------------------------
+1688:         # Draw trajectory testing mode
+1689:         # -------------------------------------------------
+1690: 
+1691:         if TRAJECTORY_MODE_ENABLED:
+1692:             trajectory_assessment.draw(frame)
+1693: 
+1694:             # Always display the centre of a currently
+1695:             # detected permitted object, even before
+1696:             # the game begins.
+1697:             for detected_object in permitted_detected_objects:
+1698:                 center = detected_object.get("center")
+1699: 
+1700:                 if center is None:
+1701:                     continue
+1702: 
+1703:                 cx, cy = map(int, center)
+1704: 
+1705:                 # Filled red dot with white border.
+1706:                 cv2.circle(
+1707:                     frame, (cx, cy), 9,
+1708:                     (255, 255, 255), 2,
+1709:                 )
+1710:                 cv2.circle(
+1711:                     frame, (cx, cy), 6,
+1712:                     (0, 0, 255), -1,
+1713:                 )
+1714: 
+1715:         writer.write(frame)
+1716: 
+1717:         cv2.imshow("Camera Capture", frame)
+1718: 
+1719:         # -------------------------------------------------
+1720:         # Trajectory preset keyboard controls
+1721:         # -------------------------------------------------
+
+=================================================================
+src/assessment/trajectory_assessment.py
+=================================================================
+...
+13: 
+14:     def __init__(
+15:         self,
+16:         start_point,
+17:         target_center,
+18:         target_radius=50,
+19:         waypoints=None,
+20:     ):
+21:         self.start_point = start_point
+22:         self.target_center = target_center
+23:         self.target_radius = target_radius
+24:         self.waypoints = waypoints or []
+25: 
+26:         self.desired_path = (
+27:             [tuple(self.start_point)]
+28:             + [tuple(point) for point in self.waypoints]
+29:             + [tuple(self.target_center)]
+30:         )
+31: 
+32:        
+33: 
+34:         # Stores the observed object-center positions.
+...
+150:         self.actual_path = []
+151:         self.attempt_active = True
+152:         self.active_object_id = object_id
+153:         self.inactive_frame_count = 0
+154: 
+155:     def end_attempt(self):
+156:         """
+157:         End the current trajectory attempt while preserving
+158:         the completed path for review.
+159:         """
+160: 
+161:         self.attempt_active = False
+162:         self.attempt_completed = True
+163:         self.inactive_frame_count = 0
+164: 
+165:     def update_attempt_state(
+166:         self,
+...
+184:             return False
+185: 
+186:         self.inactive_frame_count += 1
+187: 
+188:         if self.inactive_frame_count >= grace_frames:
+189:             self.end_attempt()
+190:             return True
+191: 
+192:         return False
+193: 
+194:     def update(self, object_center, object_id=None, timestamp_ms=None,):
+195:         """
+196:         Add the current tracked-object center to the trajectory.
+197:         """
+198: 
+199:         if not self.attempt_active:
+200:             return
+...
+405:             )
+406:         )
+407: 
+408:         target_reached = (
+409:             final_target_error
+410:             <= self.target_radius
+411:         )
+412: 
+413:         # ---------------------------------------------
+414:         # Return repetition-level trajectory results
+415:         # ---------------------------------------------
+416: 
+417:         return {
+418:             "sample_count": len(path),
+419: 
+420:             "path_length_px": float(
+421:                 path_length
+...
+541:             np.linalg.norm(
+542:                 current_position - target
+543:             )
+544:         )
+545: 
+546:     def target_reached(self):
+547:         """
+548:         Determine whether the current object center lies
+549:         inside the target region.
+550:         """
+551: 
+552:         target_error = (
+553:             self.calculate_final_target_error()
+554:         )
+555: 
+556:         if target_error is None:
+557:             return False
+558: 
+559:         return (
+560:             target_error <= self.target_radius
+561:         )
+562: 
+563:     def _point_to_segment_distance(
+564:         self,
+565:         point,
+566:         segment_start,
+567:         segment_end,
+568:     ):
+569:         """
+570:         Calculate the shortest distance between a point
+571:         and one line segment of the desired trajectory.
+...
+677: 
+678:             "final_target_error_px":
+679:                 self.calculate_final_target_error(),
+680: 
+681:             "target_reached":
+682:                 self.target_reached(),
+683:         }
+684: 
+685:     def draw(self, frame):
+686:         """
+687:         Draw the desired trajectory, target region,
+688:         actual trajectory, and current object position.
+689:         """
+690: 
+691:         # ---------------------------------------------
+692:         # Desired trajectory
+693:         # ---------------------------------------------
+694: 
+695:         for index in range(
+696:             len(self.desired_path) - 1
+697:         ):
+698:             cv2.line(
+699:                 frame,
+700:                 self.desired_path[index],
+701:                 self.desired_path[index + 1],
+702:                 (255, 255, 0),
+703:                 3,
+704:             )
+705: 
+706:         # -------------------------------------------------
+707:         # Draw start position
+708:         # -------------------------------------------------
+709: 
+710:         start_x, start_y = self.start_point
+711: 
+712:         cv2.circle(
+713:             frame,
+714:             (start_x, start_y),
+715:             12,
+716:             (255, 255, 255),
+717:             2,
+718:         )
+719: 
+720:         cv2.putText(
+721:             frame,
+722:             "START",
+723:             (start_x - 30, start_y - 20),
+724:             cv2.FONT_HERSHEY_SIMPLEX,
+725:             0.55,
+726:             (255, 255, 255),
+727:             2,
+728:         )
+729: 
+730:         # -------------------------------------------------
+731:         # Draw desired waypoints
+...
+735:             self.waypoints,
+736:             start=1,
+737:         ):
+738:             waypoint_x, waypoint_y = waypoint
+739: 
+740:             cv2.circle(
+741:                 frame,
+742:                 (waypoint_x, waypoint_y),
+743:                 8,
+744:                 (255, 255, 255),
+745:                 -1,
+746:             )
+747: 
+748:             cv2.putText(
+749:                 frame,
+750:                 f"W{index}",
+751:                 (waypoint_x + 10, waypoint_y - 10),
+752:                 cv2.FONT_HERSHEY_SIMPLEX,
+753:                 0.5,
+754:                 (255, 255, 255),
+755:                 2,
+756:             )
+757: 
+758:         # ---------------------------------------------
+759:         # Target / landing region
+760:         # ---------------------------------------------
+761: 
+762:         cv2.circle(
+763:             frame,
+764:             self.target_center,
+765:             self.target_radius,
+766:             (0, 255, 0),
+767:             3,
+768:         )
+769: 
+770:         cv2.putText(
+771:             frame,
+772:             "TARGET",
+773:             (
+774:                 self.target_center[0] - 35,
+775:                 self.target_center[1] - self.target_radius - 10,
+776:             ),
+777:             cv2.FONT_HERSHEY_SIMPLEX,
+778:             0.6,
+779:             (0, 255, 0),
+780:             2,
+781:         )
+782: 
+783:         # ---------------------------------------------
+784:         # Actual observed trajectory
+785:         # ---------------------------------------------
+786: 
+...
+789:             trajectory_points = np.asarray(
+790:                 self.actual_path,
+791:                 dtype=np.int32,
+792:             )
+793: 
+794:             cv2.polylines(
+795:                 frame,
+796:                 [trajectory_points],
+797:                 isClosed=False,
+798:                 color=(0, 0, 255),
+799:                 thickness=3,
+800:             )
+801: 
+802:         # ---------------------------------------------
+803:         # Current object position
+804:         # ---------------------------------------------
+805: 
+...
+807: 
+808:             current_position = (
+809:                 self.actual_path[-1]
+810:             )
+811: 
+812:             cv2.circle(
+813:                 frame,
+814:                 current_position,
+815:                 8,
+816:                 (0, 165, 255),
+817:                 -1,
+818:             )
+819: 
+820: 
+821:         # -------------------------------------------------
+822:         # Testing-mode status panel
+823:         # -------------------------------------------------
+824: 
+825:         panel_x = 20
+826:         panel_y = 30
+827: 
+828:         cv2.putText(
+829:             frame,
+830:             "TRAJECTORY TESTING MODE",
+831:             (panel_x, panel_y),
+832:             cv2.FONT_HERSHEY_SIMPLEX,
+833:             0.7,
+834:             (255, 255, 255),
+835:             2,
+836:         )
+837: 
+838:         if self.attempt_active:
+839:             status_text = "ACTIVE"
+...
+842:             status_text = "ATTEMPT COMPLETE"
+843: 
+844:         else:
+845:             status_text = "WAITING"
+846: 
+847:         cv2.putText(
+848:             frame,
+849:             f"Attempt: {status_text}",
+850:             (panel_x, panel_y + 30),
+851:             cv2.FONT_HERSHEY_SIMPLEX,
+852:             0.6,
+853:             (255, 255, 255),
+854:             2,
+855:         )
+856: 
+857:         if self.active_object_id is not None:
+858: 
+859:             cv2.putText(
+860:                 frame,
+861:                 f"Object ID: {self.active_object_id}",
+862:                 (panel_x, panel_y + 60),
+863:                 cv2.FONT_HERSHEY_SIMPLEX,
+864:                 0.6,
+865:                 (255, 255, 255),
+866:                 2,
+867:             )
+868: 
+869: 
+870:         if self.actual_path:
+...
+906:                     f"{target_error:.1f} px"
+907:                 )
+908:             else:
+909:                 target_error_text = "N/A"
+910: 
+911:             cv2.putText(
+912:                 frame,
+913:                 f"Efficiency: {efficiency_text}",
+914:                 (panel_x, panel_y + 90),
+915:                 cv2.FONT_HERSHEY_SIMPLEX,
+916:                 0.55,
+917:                 (255, 255, 255),
+918:                 2,
+919:             )
+920: 
+921:             cv2.putText(
+922:                 frame,
+923:                 f"Path deviation: {deviation_text}",
+924:                 (panel_x, panel_y + 115),
+925:                 cv2.FONT_HERSHEY_SIMPLEX,
+926:                 0.55,
+927:                 (255, 255, 255),
+928:                 2,
+929:             )
+930: 
+931:             cv2.putText(
+932:                 frame,
+933:                 f"Target error: {target_error_text}",
+934:                 (panel_x, panel_y + 140),
+935:                 cv2.FONT_HERSHEY_SIMPLEX,
+936:                 0.55,
+937:                 (255, 255, 255),
+938:                 2,
+939:             )
+940: 
+941:             target_text = (
+942:                 "YES"
+943:                 if target_reached
+944:                 else "NO"
+945:             )
+946: 
+947:             cv2.putText(
+948:                 frame,
+949:                 f"Target reached: {target_text}",
+950:                 (panel_x, panel_y + 165),
+951:                 cv2.FONT_HERSHEY_SIMPLEX,
+952:                 0.55,
+953:                 (255, 255, 255),
+954:                 2,
+955:             )
+956: 
+957:         return frame
+958: 
+
+=================================================================
+src/assessment/game_trajectory.py
+=================================================================
+...
+29:     ):
+30:         super().__init__(*args, **kwargs)
+31:         self.object_name = object_name
+32:         self.grace_seconds = grace_seconds
+33:         self.last_interaction_time = None
+34:         self.progress_fraction = 0.0
+35:         self.start_hold_seconds = 0.3
+36:         self.start_tolerance_px = 100
+37:         self.start_hold_since = None
+38:         self.start_candidate_id = None
+39:         self.start_confirmation_progress = 0.0
+40:         self.outcome = "WAITING"
+41:         self.last_seen_position = None
+42:         self.last_detection_time = None
+43:         self.recovery_distance_px = 120
+44:         self.go_display_until = 0.0
+45:         self.retry_ready_at = 0.0
+46: 
+47:     def reset(self):
+48:         super().reset()
+49:         self.last_interaction_time = None
+50:         self.progress_fraction = 0.0
+51:         self.clear_start_confirmation()
+52:         self.outcome = "WAITING"
+53:         self.last_seen_position = None
+54:         self.last_detection_time = None
+55: 
+56:     def start_attempt(self, object_id=None):
+57:         super().start_attempt(object_id=object_id)
+58:         self.last_interaction_time = time.monotonic()
+59:         self.progress_fraction = 0.0
+60:         self.outcome = "ACTIVE"
+61:         self.go_display_until = time.monotonic() + 1.0
+62:         self.last_seen_position = tuple(self.start_point)
+63:         self.last_detection_time = None
+64:         self.clear_start_confirmation()
+65: 
+66:     def end_attempt(self, outcome=None):
+67:         if not self.attempt_active:
+68:             return
+69: 
+70:         if outcome is None:
+71:             outcome = (
+72:                 "COMPLETED"
+73:                 if self.target_reached()
+74:                 and self.progress_fraction >= 0.90
+75:                 else "INCOMPLETE"
+76:             )
+77: 
+78:         super().end_attempt()
+79:         self.outcome = outcome
+80:         self.attempt_completed = outcome == "COMPLETED"
+81:         self.last_interaction_time = None
+82: 
+83:         if outcome == "INTERRUPTED":
+84:             self.retry_ready_at = time.monotonic() + 1.0
+85: 
+86:     def update_attempt_state(
+87:         self,
+88:         interaction_active=False,
+89:         grace_frames=10,
+...
+100:         if object_visible:
+101:             self.last_detection_time = now
+102:             self.outcome = "ACTIVE"
+103: 
+104:             if (
+105:                 self.target_reached()
+106:                 and self.progress_fraction >= 0.90
+107:             ):
+108:                 self.end_attempt("COMPLETED")
+109:                 return True
+110: 
+111:             return False
+112: 
+113:         if self.last_detection_time is None:
+114:             self.last_detection_time = now
+115: 
+116:         self.outcome = "TRACKING LOST"
+117: 
+118:         if now - self.last_detection_time >= self.grace_seconds:
+119:             self.end_attempt("INTERRUPTED")
+120:             return True
+121: 
+122:         return False
+123: 
+124:     def recover_object(self, detections):
+125:         if not self.attempt_active:
+126:             return None
+127: 
+128:         if self.last_seen_position is None:
+129:             return None
+130: 
+...
+235:             endpoint = (
+236:                 int(a[0] + (b[0] - a[0]) * fraction),
+237:                 int(a[1] + (b[1] - a[1]) * fraction),
+238:             )
+239: 
+240:             cv2.line(
+241:                 frame, a, endpoint, (0, 255, 0), 4
+242:             )
+243:             remaining -= length
+244: 
+245:     def _project_to_path(self, point):
+246:         """Return closest path position, measured in pixels."""
+247:         path = self.desired_path
+248: 
+249:         if len(path) < 2:
+250:             return 0.0, 0.0
+251: 
+...
+313:             self.actual_path[-1]
+314:         )
+315: 
+316:         # Only advance progress when the object is close
+317:         # enough to the desired path.
+318:         tolerance_px = max(40, self.target_radius)
+319: 
+320:         if distance <= tolerance_px:
+321:             self.progress_fraction = max(
+322:                 self.progress_fraction,
+323:                 fraction,
+324:             )
+325: 
+326:     def _draw_path(self, frame):
+327:         path = self.desired_path
+328: 
+329:         if len(path) < 2:
+330:             return
+331: 
+332:         lengths = [
+333:             math.dist(a, b)
+...
+336:         total = sum(lengths)
+337: 
+338:         if total <= 0:
+339:             return
+340: 
+341:         completed_distance = self.progress_fraction * total
+342:         travelled = 0.0
+343: 
+344:         for (a, b), length in zip(
+345:             zip(path[:-1], path[1:]),
+346:             lengths,
+347:         ):
+348:             if length <= 0:
+349:                 continue
+350: 
+351:             steps = max(1, math.ceil(length / 5))
+352: 
+...
+367:                     travelled + (t0 + t1) * 0.5 * length
+368:                 )
+369: 
+370:                 if midpoint_distance <= completed_distance:
+371:                     # Green completed segment.
+372:                     cv2.line(
+373:                         frame, p0, p1, (0, 210, 0), 4
+374:                     )
+375:                 else:
+376:                     # Blue dotted remaining segment.
+377:                     # Never draw blue underneath green.
+378:                     if (int(midpoint_distance / 10) % 2) == 0:
+379:                         cv2.line(
+380:                             frame, p0, p1, (255, 150, 0), 3
+381:                         )
+382: 
+383:             travelled += length
+384: 
+385:     def _draw_object_icon(self, frame, center, color, scale=1.0):
+386:         x, y = map(int, center)
+387:         name = self.object_name.lower()
+388: 
+389:         def scaled(value):
+390:             return max(1, int(round(value * scale)))
+391: 
+392:         if name in ("sports ball", "apple"):
+393:             cv2.circle(frame, (x, y), scaled(28), color, 2)
+394: 
+395:         elif name in ("cell phone", "remote", "book"):
+396:             w, h = (
+397:                 (30, 56) if name == "cell phone"
+398:                 else (24, 70) if name == "remote"
+399:                 else (58, 44)
+400:             )
+401:             w, h = scaled(w), scaled(h)
+402:             cv2.rectangle(
+403:                 frame,
+404:                 (x - w // 2, y - h // 2),
+405:                 (x + w // 2, y + h // 2),
+406:                 color,
+407:                 2,
+408:             )
+409: 
+410:         elif name == "bottle":
+411:             points = np.array([
+412:                 [x - 10, y - 35],
+413:                 [x + 10, y - 35],
+...
+416:                 [x + 20, y + 35],
+417:                 [x - 20, y + 35],
+418:                 [x - 20, y - 15],
+419:                 [x - 10, y - 22],
+420:             ], dtype=np.int32)
+421:             cv2.polylines(frame, [points], True, color, 2)
+422: 
+423:         elif name in ("cup", "bowl"):
+424:             w = 38 if name == "cup" else 55
+425:             h = 42 if name == "cup" else 25
+426:             cv2.rectangle(
+427:                 frame,
+428:                 (x - w // 2, y - h // 2),
+429:                 (x + w // 2, y + h // 2),
+430:                 color,
+431:                 2,
+432:             )
+433:             if name == "cup":
+434:                 cv2.ellipse(
+435:                     frame,
+436:                     (x + w // 2 + 7, y),
+437:                     (9, 13),
+438:                     0, -90, 90, color, 2,
+439:                 )
+440: 
+441:         elif name in ("spoon", "fork", "toothbrush"):
+442:             cv2.line(
+443:                 frame, (x, y - 30), (x, y + 35),
+444:                 color, 3,
+445:             )
+446:             cv2.ellipse(
+447:                 frame,
+448:                 (x, y - 24),
+449:                 (9, 15),
+450:                 0, 0, 360, color, 2,
+451:             )
+452: 
+453:         else:
+454:             # Provisional generic silhouette for objects
+455:             # without a dedicated icon yet.
+456:             cv2.rectangle(
+457:                 frame,
+458:                 (x - 22, y - 28),
+459:                 (x + 22, y + 28),
+460:                 color,
+461:                 2,
+462:             )
+463: 
+464:         cv2.circle(frame, (x, y), 3, color, -1)
+465: 
+466:     def draw(self, frame):
+467:         # Draw desired path with mutually exclusive colors.
+468:         self._draw_path(frame)
+469: 
+470:         # Object-specific start and target silhouettes.
+471:         self._draw_object_icon(
+472:             frame, self.start_point,
+473:             (255, 255, 255), scale=2.5,
+474:         )
+475:         self._draw_object_icon(
+...
+482:         # acceptable starting region.
+483:         if not self.attempt_active:
+484:             sx, sy = map(int, self.start_point)
+485: 
+486:             overlay = frame.copy()
+487:             cv2.circle(
+488:                 overlay, (sx, sy),
+489:                 int(self.start_tolerance_px),
+490:                 (0, 215, 255), -1,
+491:             )
+492:             cv2.addWeighted(
+493:                 overlay, 0.12, frame, 0.88, 0, frame
+494:             )
+495: 
+496:             cv2.circle(
+497:                 frame, (sx, sy),
+498:                 int(self.start_tolerance_px),
+499:                 (0, 215, 255), 2,
+500:             )
+501: 
+502:             cv2.line(
+503:                 frame, (sx - 18, sy),
+504:                 (sx + 18, sy),
+505:                 (0, 255, 255), 3,
+506:             )
+507:             cv2.line(
+508:                 frame, (sx, sy - 18),
+509:                 (sx, sy + 18),
+510:                 (0, 255, 255), 3,
+511:             )
+512:             cv2.circle(
+513:                 frame, (sx, sy), 5,
+514:                 (0, 255, 255), -1,
+515:             )
+516: 
+517:         cv2.putText(
+518:             frame, "START",
+519:             (self.start_point[0] - 25,
+520:              self.start_point[1] - 48),
+521:             cv2.FONT_HERSHEY_SIMPLEX,
+522:             0.5, (255, 255, 255), 2,
+523:         )
+524:         cv2.putText(
+525:             frame, "TARGET",
+526:             (self.target_center[0] - 30,
+527:              self.target_center[1] - 48),
+528:             cv2.FONT_HERSHEY_SIMPLEX,
+529:             0.5, (0, 220, 0), 2,
+530:         )
+531: 
+532:         # Red: actual movement trace.
+533:         if len(self.actual_path) >= 2:
+534:             points = np.asarray(
+535:                 self.actual_path, dtype=np.int32
+536:             )
+537:             cv2.polylines(
+538:                 frame, [points], False, (0, 0, 255), 3
+539:             )
+540: 
+541:         if self.actual_path:
+542:             cv2.circle(
+543:                 frame, self.actual_path[-1],
+544:                 7, (0, 0, 255), -1,
+545:             )
+546: 
+547:         status = self.outcome
+548: 
+549:         if not self.attempt_active and self.outcome == "WAITING":
+550:             status = (
+551:                 "HOLD AT START"
+552:                 if self.start_candidate_id is not None
+553:                 else "MOVE TO START"
+...
+555: 
+556:         if (
+557:             self.attempt_active
+558:             and time.monotonic() < self.go_display_until
+559:         ):
+560:             cv2.putText(
+561:                 frame, "GO!",
+562:                 (self.start_point[0] + 30,
+563:                  self.start_point[1] - 60),
+564:                 cv2.FONT_HERSHEY_SIMPLEX,
+565:                 1.2, (0, 255, 0), 3,
+566:             )
+567: 
+568:         cv2.putText(
+569:             frame,
+570:             f"{self.object_name.upper()} | {status} | "
+571:             f"Progress: {self.progress_fraction * 100:.0f}%",
+572:             (20, 32),
+573:             cv2.FONT_HERSHEY_SIMPLEX,
+574:             0.65, (255, 255, 255), 2,
+575:         )
+576: 
+577:         return frame

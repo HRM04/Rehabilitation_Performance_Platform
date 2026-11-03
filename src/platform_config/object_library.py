@@ -20,7 +20,7 @@ OBJECT_LIBRARY = {
         "display_name": "Cup",
         "expected_grasps": [
             "handle",
-            "cylindrical",
+            "cylindrical", "lateral_pinch",
         ],
         "status": "configured",
     },
@@ -29,7 +29,7 @@ OBJECT_LIBRARY = {
         "expected_grasps": [
             "handle",
             "multidigit_precision",
-            "tripod",
+            "tripod", "lateral_pinch", "tip_pinch",
         ],
         "status": "configured",
     },
@@ -44,8 +44,8 @@ OBJECT_LIBRARY = {
     "bowl": {
         "display_name": "Bowl",
         "expected_grasps": [
-            "whole_hand_power",
             "large_palmar",
+            "spherical",
         ],
         "status": "experimental",
     },
@@ -92,7 +92,7 @@ OBJECT_LIBRARY = {
         "display_name": "Sports Ball",
         "expected_grasps": [
             "spherical",
-            "whole_hand_power",
+            "large_palmar",
         ],
         "status": "experimental",
     },
@@ -100,7 +100,7 @@ OBJECT_LIBRARY = {
         "display_name": "Apple",
         "expected_grasps": [
             "spherical",
-            "whole_hand_power",
+            "large_palmar",
         ],
         "status": "experimental",
     },

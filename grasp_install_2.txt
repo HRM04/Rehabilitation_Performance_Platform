@@ -1,0 +1,3 @@
+======== FILE LOCATIONS ========
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/tools/record_labelled_grasps.py
+CREATED   /Users/pro/Documents/Projects/Rehabilitation Research/tools/evaluate_grasp_labels.py

@@ -1,52 +1,64 @@
-"""Temporal analysis of posture-related movement.
+"""Temporal analysis of image-based posture deviations.
 
-Describes threshold exceedances in measured posture signals.
-Does not establish whether movement is clinically compensatory.
+Threshold exceedances are engineering indicators, not validated
+clinical compensation classifications.
 """
+
+import math
 
 
 def analyze_posture_deviations(
     samples,
     threshold,
-    max_gap_ms=150,
+    max_gap_ms=250,
+    min_episode_ms=300,
 ):
-    """
-    Analyze timestamped posture measurements.
+    """Analyze timestamped posture deviations and data availability."""
 
-    samples: list of dictionaries containing:
-        timestamp_ms: frame timestamp
-        value: signed measurement, or None if unavailable
+    if not math.isfinite(threshold) or threshold <= 0:
+        raise ValueError("Threshold must be positive and finite.")
 
-    threshold: positive threshold in the measurement's units
-    max_gap_ms: maximum interval between consecutive samples
-                considered part of the same episode
+    if not math.isfinite(max_gap_ms) or max_gap_ms <= 0:
+        raise ValueError("max_gap_ms must be positive and finite.")
 
-    Duration is estimated from consecutive valid sample intervals.
-    """
+    if not math.isfinite(min_episode_ms) or min_episode_ms < 0:
+        raise ValueError("min_episode_ms must be nonnegative and finite.")
 
-    if threshold <= 0:
-        raise ValueError("Threshold must be positive.")
+    ordered = []
 
-    if max_gap_ms <= 0:
-        raise ValueError("max_gap_ms must be positive.")
+    for sample in samples:
+        try:
+            timestamp = float(sample["timestamp_ms"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
 
-    ordered = sorted(
-        samples,
-        key=lambda sample: sample["timestamp_ms"],
-    )
+        if not math.isfinite(timestamp) or timestamp < 0:
+            continue
 
-    valid_count = 0
-    exceeding_count = 0
+        value = sample.get("value")
+
+        try:
+            value = float(value) if value is not None else None
+        except (TypeError, ValueError, OverflowError):
+            value = None
+
+        if value is not None and not math.isfinite(value):
+            value = None
+
+        ordered.append((timestamp, value))
+
+    ordered.sort(key=lambda item: item[0])
+
     episodes = []
     active_start = None
     active_end = None
-    previous_time = None
+    previous_timestamp = None
     previous_exceeding = False
 
-    for sample in ordered:
-        timestamp = sample["timestamp_ms"]
-        value = sample.get("value")
+    valid_count = 0
+    exceeding_count = 0
 
+    for timestamp, value in ordered:
         valid = value is not None
         exceeding = valid and abs(value) > threshold
 
@@ -56,9 +68,8 @@ def analyze_posture_deviations(
                 exceeding_count += 1
 
         continuous = (
-            previous_time is not None
-            and timestamp > previous_time
-            and timestamp - previous_time <= max_gap_ms
+            previous_timestamp is not None
+            and 0 < timestamp - previous_timestamp <= max_gap_ms
         )
 
         if exceeding:
@@ -71,6 +82,7 @@ def analyze_posture_deviations(
                         "end_ms": active_end,
                         "duration_ms": active_end - active_start,
                     })
+
                 active_start = timestamp
 
             active_end = timestamp
@@ -84,7 +96,7 @@ def analyze_posture_deviations(
             active_start = None
             active_end = None
 
-        previous_time = timestamp
+        previous_timestamp = timestamp
         previous_exceeding = exceeding
 
     if active_start is not None:
@@ -94,24 +106,40 @@ def analyze_posture_deviations(
             "duration_ms": active_end - active_start,
         })
 
+    sustained = [
+        episode
+        for episode in episodes
+        if episode["duration_ms"] >= min_episode_ms
+    ]
+
     durations = [
         episode["duration_ms"]
         for episode in episodes
     ]
 
+    total_samples = len(ordered)
+
     return {
         "threshold": threshold,
         "valid_samples": valid_count,
+        "missing_samples": total_samples - valid_count,
+        "total_samples": total_samples,
+        "coverage_percent": (
+            round(100 * valid_count / total_samples, 1)
+            if total_samples else None
+        ),
         "exceeding_samples": exceeding_count,
         "exceedance_percent": (
             round(100 * exceeding_count / valid_count, 1)
             if valid_count else None
         ),
         "episode_count": len(episodes),
-        "longest_episode_ms": (
-            max(durations) if durations else 0
-        ),
+        "longest_episode_ms": max(durations) if durations else 0,
         "total_episode_duration_ms": sum(durations),
         "episodes": episodes,
+        "sustained_episode_count": len(sustained),
+        "sustained_episodes": sustained,
+        "min_episode_ms": min_episode_ms,
+        "max_gap_ms": max_gap_ms,
         "duration_method": "observed_sample_span",
     }

@@ -18,6 +18,10 @@ from src.assessment.trajectory_movement_quality import (
     assess_trajectory_movement_quality,
 )
 
+from src.assessment.trajectory_reliability import (
+    assess_trajectory_reliability,
+)
+
 
 METRICS = {
     "duration_ms": "duration_ms",
@@ -48,6 +52,30 @@ def analyse_trajectory_session(session):
             attempt.get("trajectory_samples") or []
         )
 
+        # Supplemental engineering reliability assessment.
+        # Preserve existing raw metrics and legacy data-quality logic.
+        config = attempt.get("trajectory_config") or {}
+
+        reference_path = (
+            config.get("desired_path")
+            or config.get("reference_path")
+        )
+
+        if reference_path is None:
+            reference_path = []
+
+        reliability = assess_trajectory_reliability(
+            attempt.get("trajectory_samples") or [],
+            reference_path,
+        )
+
+        if len(reference_path) < 2:
+            reliability["eligible"] = False
+            if "Reference path unavailable" not in reliability["reasons"]:
+                reliability["reasons"].append(
+                    "Reference path unavailable"
+                )
+
         trajectory = attempt.get("metrics") or {}
 
         values = {
@@ -77,6 +105,7 @@ def analyse_trajectory_session(session):
             "outcome": attempt.get("outcome"),
             "metrics": values,
             "movement_quality": quality,
+            "movement_reliability": reliability,
             "data_quality": (
                 "REVIEW" if warnings else
                 "SUFFICIENT" if quality["assessment_available"]

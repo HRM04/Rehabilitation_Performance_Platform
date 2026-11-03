@@ -8,6 +8,7 @@ def make_row(frame, state, movement=0.0):
         "frame_number": frame,
         "timestamp_ms": frame * 100,
         "interaction_state": state,
+        "handedness": "Right",
         "object_class": "bottle",
         "object_movement": movement,
     }

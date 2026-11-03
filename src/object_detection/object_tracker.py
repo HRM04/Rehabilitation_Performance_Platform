@@ -38,7 +38,7 @@ def track_objects(frame, allowed_classes=None):
     results = model.track(
         frame,
         persist=True,
-        conf=0.15,
+        conf=0.25,
         classes=class_ids,
         tracker="bytetrack.yaml",
         device="mps",
@@ -104,7 +104,7 @@ class ObjectIdentityTracker:
 
     def __init__(
         self,
-        max_missing_frames=2,
+        max_missing_frames=15,
         max_match_distance=100
     ):
         self.max_missing_frames = max_missing_frames
