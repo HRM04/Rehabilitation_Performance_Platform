@@ -1,12 +1,12 @@
 # Rehabilitation Performance Platform
 
 Camera-based upper-limb rehabilitation assessment (Ontario Tech, MEng Mechatronics).
-Frozen build: tag `B02`, branch `development/phase1-20261027`.
+Current build: branch `main`.
 
 ## Get the code
 
 ```
-git clone -b development/phase1-20261027 https://github.com/HRM04/Rehabilitation_Performance_Platform.git
+git clone https://github.com/HRM04/Rehabilitation_Performance_Platform.git
 cd Rehabilitation_Performance_Platform
 ```
 
