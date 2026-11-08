@@ -48,9 +48,9 @@ data/processed/
 *.log
 *.tmp
 # code-only repository: no data, datasets, reports, archives, videos, weights or backups
-data/
-datasets/
-reports/
+/data/
+/datasets/
+/reports/
 *.zip
 *.csv
 *.mp4
@@ -63,9 +63,12 @@ __pycache__/
 .DS_Store
 
 # extra exclusions
-checkpoints/
+/checkpoints/
 *.bak
 *.tar.gz
 *.npz
 *.jpg
 *.jpeg
+
+# runtime recording folder created under src/capture
+src/capture/data/

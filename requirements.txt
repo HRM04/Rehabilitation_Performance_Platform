@@ -1,0 +1,25 @@
+# Rehabilitation Performance Platform: dependencies (Python 3.12)
+# Install:  python3.12 -m venv .venv
+#           source .venv/bin/activate        (Windows: .venv\Scripts\activate)
+#           pip install -r requirements.txt
+#
+# Versions match the development machine, except streamlit (1.60.0 here, 1.66.1 there)
+# because 1.66.1 needs protobuf 5+ and mediapipe 0.10.13 needs protobuf below 5.
+
+# Vision and tracking
+ultralytics==8.4.155
+mediapipe==0.10.13                  # code uses mp.solutions, so do not upgrade without retesting
+opencv-contrib-python==5.0.0.93     # provides cv2.aruco
+opencv-python==5.0.0.93             # pulled in by ultralytics, kept at the same version
+torch==2.14.0
+torchvision==0.29.0
+
+# Data and dashboards
+numpy==2.5.2
+pandas==3.0.6
+plotly==7.1.0
+pillow==12.3.0
+streamlit==1.60.0
+
+# Tests
+pytest==9.2.0
